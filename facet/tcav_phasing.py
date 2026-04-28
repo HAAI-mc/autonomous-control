@@ -10,7 +10,6 @@ import logging
 from typing import Any, Optional, Callable
 import numpy as np
 from pydantic import BaseModel, ConfigDict, PositiveFloat, PositiveInt
-import numpy as np
 from xopt import Xopt, Evaluator, VOCS
 from xopt.generators.bayesian import (
     ExpectedImprovementGenerator,
@@ -102,7 +101,7 @@ class MLTCAVPhasing(BaseModel):
         """
         logger.info("Starting TCAV phase optimization....")
         # make sure that the tcav is in accel mode
-        
+
         if self.tcav.mode_config != "ACCEL_STDBY":
             logger.error("TCAV is not in ACCEL_STDBY model")
             raise RuntimeError("tcav must be in ACCEL_STDBY mode config")
@@ -143,7 +142,12 @@ class MLTCAVPhasing(BaseModel):
             # run optimization
             for i in range(self.n_iterations):
                 best_offset = self.X.data["offset"].min()
-                logger.debug("Iteration %d/%d current best offset=%s", i + 1, self.n_iterations, best_offset)
+                logger.debug(
+                    "Iteration %d/%d current best offset=%s",
+                    i + 1,
+                    self.n_iterations,
+                    best_offset,
+                )
                 if best_offset < 1e-2:
                     logger.info("Converged")
                     break
@@ -191,10 +195,14 @@ class MLTCAVPhasing(BaseModel):
         generator = ExpectedImprovementGenerator(vocs=vocs)
         logger.debug("Xopt object created.")
         return Xopt(
-            vocs=vocs, 
-            evaluator=evaluator, 
-            generator=generator, 
-            dump_file=os.fspath(self.dump_location / f"tcav_phasing_{int(time.time())}.yaml") if self.dump_location else None
+            vocs=vocs,
+            evaluator=evaluator,
+            generator=generator,
+            dump_file=os.fspath(
+                self.dump_location / f"tcav_phasing_{int(time.time())}.yaml"
+            )
+            if self.dump_location
+            else None,
         )
 
     def acquire_nominal_centroid(self) -> float:
@@ -237,7 +245,7 @@ class MLTCAVPhasing(BaseModel):
 
         logger.debug(f"Evaluation result: {result}")
         return result
-    
+
 
 def run_automatic_tcav_phasing(env, dump_location=None):
     """Create and run the automatic TCAV phasing controller.
@@ -268,12 +276,18 @@ def run_automatic_tcav_phasing(env, dump_location=None):
         wait_time=3.0,
         evaluate_callback=eval_callback,
         verbose=False,
-        max_scan_range=[200,220],
+        max_scan_range=[200, 220],
         dump_location=dump_location,
     )
-    logger.debug("Configured MLTCAVPhasing with wait_time=%s max_scan_range=%s", phaser.wait_time, phaser.max_scan_range)
+    logger.debug(
+        "Configured MLTCAVPhasing with wait_time=%s max_scan_range=%s",
+        phaser.wait_time,
+        phaser.max_scan_range,
+    )
 
     X = phaser.run()
-    logger.info("Automatic TCAV phasing finished. Optimized phase: %s", phaser.optimized_phase)
+    logger.info(
+        "Automatic TCAV phasing finished. Optimized phase: %s", phaser.optimized_phase
+    )
 
     return X
