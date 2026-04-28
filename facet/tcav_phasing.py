@@ -1,3 +1,10 @@
+"""TCAV phasing optimization control script.
+
+This module provides a model-based controller that tunes TCAV phase using
+Bayesian optimization with transmission constraints.
+"""
+
+import os
 import time
 import logging
 from typing import Any, Optional, Callable
@@ -18,7 +25,31 @@ logger = logging.getLogger("auto_tcav_phasing")
 
 
 class MLTCAVPhasing(BaseModel):
-    """Bayesian optimization routine for tuning TCAV phase."""
+    """Bayesian optimization routine for tuning TCAV phase.
+
+    Parameters
+    ----------
+    tcav : Any
+        TCAV device interface with phase, amplitude, and mode configuration.
+    bpm : BPM
+        Downstream BPM used to measure centroid response.
+    transmission_measurement : TransmissionMeasurement
+        Measurement helper for beam transmission during scans.
+    n_measurement_shots : int, optional
+        Number of shots per measurement, by default 1.
+    wait_time : float, optional
+        Settling time in seconds after actuator changes, by default 2.0.
+    n_initial_points : int, optional
+        Number of points in the initial coarse scan, by default 10.
+    n_iterations : int, optional
+        Maximum Bayesian optimization iterations, by default 10.
+    max_scan_range : list[float], optional
+        Bounds for TCAV phase optimization, by default [-10, 10].
+    evaluate_callback : callable, optional
+        Optional callback for adding extra observables to each evaluation.
+    min_transmission : float, optional
+        Minimum allowable transmission constraint, by default 0.8.
+    """
 
     tcav: Any
     bpm: BPM
@@ -37,6 +68,7 @@ class MLTCAVPhasing(BaseModel):
     max_scan_range: list[float] = [-10, 10]
     evaluate_callback: Optional[Callable] = None
     min_transmission: float = 0.8
+    dump_location: Optional[str] = None
 
     verbose: bool = False
 
@@ -44,9 +76,30 @@ class MLTCAVPhasing(BaseModel):
 
     @property
     def optimized_phase(self):
+        """Return the best phase found so far.
+
+        Returns
+        -------
+        float
+            Best phase according to the VOCS objective.
+        """
         return float(self.X.vocs.select_best(self.X.data)[2]["phase"])
 
     def run(self):
+        """Execute the TCAV phase optimization routine.
+
+        Returns
+        -------
+        Xopt or None
+            Optimizer object containing collected data.
+
+        Raises
+        ------
+        RuntimeError
+            If TCAV is not in ACCEL_STDBY mode when optimization starts.
+        Exception
+            Propagates runtime failures after restoring machine settings.
+        """
         logger.info("Starting TCAV phase optimization....")
         # make sure that the tcav is in accel mode
         
@@ -119,8 +172,14 @@ class MLTCAVPhasing(BaseModel):
             return self.X
 
     def create_xopt_object(self):
+        """Instantiate an Xopt optimizer configured for TCAV phase.
+
+        Returns
+        -------
+        Xopt
+            Configured optimizer instance.
+        """
         logger.debug("Creating Xopt optimizer object.")
-        """Instantiate Xopt optimizer object."""
         vocs = VOCS(
             variables={"phase": self.max_scan_range},
             objectives={"offset": "MINIMIZE"},
@@ -131,7 +190,12 @@ class MLTCAVPhasing(BaseModel):
 
         generator = ExpectedImprovementGenerator(vocs=vocs)
         logger.debug("Xopt object created.")
-        return Xopt(vocs=vocs, evaluator=evaluator, generator=generator)
+        return Xopt(
+            vocs=vocs, 
+            evaluator=evaluator, 
+            generator=generator, 
+            dump_file=os.fspath(self.dump_location / f"tcav_phasing_{int(time.time())}.yaml") if self.dump_location else None
+        )
 
     def acquire_nominal_centroid(self) -> float:
         """Get centroid without TCAV streaking influence."""
@@ -175,7 +239,22 @@ class MLTCAVPhasing(BaseModel):
         return result
     
 
-def run_automatic_tcav_phasing(env):
+def run_automatic_tcav_phasing(env, dump_location=None):
+    """Create and run the automatic TCAV phasing controller.
+
+    Parameters
+    ----------
+    env : Any
+        Environment that provides TCAV, BPM, transmission measurement, and
+        callback interfaces.
+    dump_location : str or Path, optional
+        Directory to save optimization data dumps, by default None (no dumps).
+
+    Returns
+    -------
+    Xopt or None
+        Optimization object from the phasing run.
+    """
     tcav = env.tcav
     logger.info(f"Starting automatic TCAV phasing. Current TCAV phase: {tcav.phase}")
 
@@ -189,7 +268,8 @@ def run_automatic_tcav_phasing(env):
         wait_time=3.0,
         evaluate_callback=eval_callback,
         verbose=False,
-        max_scan_range=[200,220]
+        max_scan_range=[200,220],
+        dump_location=dump_location,
     )
     logger.debug("Configured MLTCAVPhasing with wait_time=%s max_scan_range=%s", phaser.wait_time, phaser.max_scan_range)
 

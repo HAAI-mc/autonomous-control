@@ -1,3 +1,10 @@
+"""Energy spread optimization control script.
+
+This module performs a phase scan optimization to minimize transverse beam
+size as a proxy for energy spread.
+"""
+
+import os
 import numpy as np
 import time
 import logging
@@ -9,6 +16,26 @@ from xopt.generators.bayesian import ExpectedImprovementGenerator
 logger = logging.getLogger("energy_spread_opt")
 
 def optimize_energy_spread(env, dump_location):
+    """Optimize beam energy spread using klystron phase control.
+
+    Parameters
+    ----------
+    env : Any
+        Control environment with variable, observable, and beam profile
+        measurement interfaces.
+    dump_location : str or pathlib.Path
+        Requested output location for optimization artifacts.
+
+    Returns
+    -------
+    Xopt
+        Executed optimizer instance containing all evaluations.
+
+    Raises
+    ------
+    RuntimeError
+        If the dipole current state is not suitable for energy measurements.
+    """
     logger.info("Starting energy spread optimization.")
     dipole_correct_state = 0.125
     dipole_current_state = env.get_variables(
@@ -35,6 +62,18 @@ def optimize_energy_spread(env, dump_location):
     logger.debug("Created beam profile measurement for PROF10711.")
 
     def evaluate(inputs):
+        """Evaluate beam size metrics for a trial phase setting.
+
+        Parameters
+        ----------
+        inputs : dict[str, float]
+            Mapping that includes the phase setpoint PV value.
+
+        Returns
+        -------
+        dict[str, float]
+            Dictionary with measured RMS beam sizes in x and y.
+        """
         logger.debug("Evaluating inputs: %s", inputs)
         env.set_variables(inputs)
         logger.debug("Waiting for klystron phase to settle.")
@@ -79,7 +118,7 @@ def optimize_energy_spread(env, dump_location):
         vocs=vocs,
         evaluator=evaluator,
         generator=generator,
-        dump_file=f"energy_spread_minimization_{int(time.time())}.yaml"
+        dump_file=os.fspath(dump_location / f"energy_spread_minimization_{int(time.time())}.yaml")
     )
     logger.debug("Created Xopt object with dump file: %s (dump_location=%s)", X.dump_file, dump_location)
 

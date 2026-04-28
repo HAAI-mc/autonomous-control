@@ -1,4 +1,10 @@
-import sys
+"""Injector emittance optimization control script.
+
+This module defines a Bayesian optimization routine for minimizing measured
+injector emittance using Xopt.
+"""
+
+import os
 import time
 import logging
 from xopt import Xopt, Evaluator, VOCS
@@ -8,6 +14,21 @@ from xopt.generators.bayesian import ExpectedImprovementGenerator
 logger = logging.getLogger("injector_emittance_opt")
 
 def optimize_injector_emittance(env, dump_location):
+    """Run Bayesian optimization for injector emittance.
+
+    Parameters
+    ----------
+    env : Any
+        Injector control environment that provides variable and observable
+        interfaces used by this routine.
+    dump_location : str or pathlib.Path
+        Requested output location for optimization artifacts.
+
+    Returns
+    -------
+    Xopt
+        Configured and executed Xopt instance containing optimization data.
+    """
     logger.info("Starting injector emittance optimization.")
     env.emittance_config_fname = (
         "/home/fphysics/rroussel/e331/Badger-Resources/facet/plugins/environments/inj_emit/emittance_measurement_configs/PROF10571.yaml"
@@ -21,6 +42,18 @@ def optimize_injector_emittance(env, dump_location):
     )
 
     def evaluate(inputs):
+        """Evaluate injector observables at a candidate setting.
+
+        Parameters
+        ----------
+        inputs : dict[str, float]
+            Mapping of control variable names to values.
+
+        Returns
+        -------
+        dict[str, float]
+            Observable dictionary returned by the control environment.
+        """
         logger.debug("Evaluating injector settings: %s", inputs)
         env.set_variables(inputs)
     
@@ -53,7 +86,7 @@ def optimize_injector_emittance(env, dump_location):
         vocs=vocs,
         evaluator=evaluator,
         generator=generator,
-        dump_file=f"5d_emittance_opt_{int(time.time())}.yaml",
+        dump_file=os.fspath(dump_location / f"5d_emittance_opt_{int(time.time())}.yaml"),
     )
     logger.debug("Created Xopt object with dump file: %s", X.dump_file)
 
