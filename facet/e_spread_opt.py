@@ -1,10 +1,15 @@
 import numpy as np
 import time
+import logging
 
 from xopt import Xopt, Evaluator, VOCS
 from xopt.generators.bayesian import ExpectedImprovementGenerator
 
+
+logger = logging.getLogger("energy_spread_opt")
+
 def optimize_energy_spread(env, dump_location):
+    logger.info("Starting energy spread optimization.")
     dipole_correct_state = 0.125
     dipole_current_state = env.get_variables(
         ["BEND:IN10:661:BACT"]
@@ -18,14 +23,23 @@ def optimize_energy_spread(env, dump_location):
         dipole_current_state,
         rtol=1e-2
     ):
+        logger.error(
+            "Dipole state check failed: expected=%s actual=%s",
+            dipole_correct_state,
+            dipole_current_state,
+        )
         raise RuntimeError("dipole not in correct state for energy measurements")
+    logger.debug("Dipole state check passed: %s", dipole_current_state)
 
     measurement = env.create_beamprofile_measurement("PROF10711")
+    logger.debug("Created beam profile measurement for PROF10711.")
 
     def evaluate(inputs):
+        logger.debug("Evaluating inputs: %s", inputs)
         env.set_variables(inputs)
-        print('changing phase')
+        logger.debug("Waiting for klystron phase to settle.")
         time.sleep(0.1)  # Simulate some processing time
+        settle_polls = 0
         while not np.isclose(
             env.get_observables(
                 [klys_phase_readback_pv]
@@ -33,19 +47,21 @@ def optimize_energy_spread(env, dump_location):
         , inputs[klys_phase_set_pv], atol=0.05
         ):
             time.sleep(0.1)
-        print('phase changed')
+            settle_polls += 1
+        logger.debug("Phase settled after %d polls.", settle_polls)
             
         # Get the output from the environment
         results = measurement.measure()
         output = results.rms_sizes_all
         output_dict = dict(zip(['rms_x', 'rms_y'], list(output.flatten())))
+        logger.debug("Measurement result: %s", output_dict)
     
         return output_dict
 
     initial_phase = env.get_variables([klys_phase_set_pv])[klys_phase_set_pv]
+    logger.debug("Initial phase readback for optimization variable %s: %s", klys_phase_set_pv, initial_phase)
 
     # Define the VOCS for the optimization problem
-    # NOTE: only QE01-04 are currently available in the simulated server
     vocs = VOCS(
         variables={
             klys_phase_set_pv: [initial_phase-5, initial_phase+5],
@@ -65,11 +81,19 @@ def optimize_energy_spread(env, dump_location):
         generator=generator,
         dump_file=f"energy_spread_minimization_{int(time.time())}.yaml"
     )
+    logger.debug("Created Xopt object with dump file: %s (dump_location=%s)", X.dump_file, dump_location)
+
+    logger.info("Running initial random evaluations.")
     X.random_evaluate(3)
 
     for i in range(2):
+        logger.debug("Running optimization step %d/2", i + 1)
         X.step()
-    print("_____________FINISHED______________")
 
-    X.evaluate_data(X.vocs.select_best(X.data)[2])
+    logger.info("Optimization loop complete; evaluating best point.")
+    best = X.vocs.select_best(X.data)[2]
+    logger.debug("Best point selected: %s", best)
+    X.evaluate_data(best)
+    logger.info("Energy spread optimization finished.")
+
     return X

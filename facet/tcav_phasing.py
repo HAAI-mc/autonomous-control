@@ -1,25 +1,17 @@
 import time
-import torch
-import pprint
 import logging
 from typing import Any, Optional, Callable
-from epics import caget
 import numpy as np
 from pydantic import BaseModel, ConfigDict, PositiveFloat, PositiveInt
-from gpytorch.kernels import CosineKernel, ScaleKernel
-from gpytorch.priors import GammaPrior
 import numpy as np
 from xopt import Xopt, Evaluator, VOCS
 from xopt.generators.bayesian import (
     ExpectedImprovementGenerator,
 )
 
-from lcls_tools.common.devices.tcav import TCAV
 from ml_tto.automatic_emittance.transmission import TransmissionMeasurement
 from lcls_tools.common.devices.bpm import BPM
-from lcls_tools.common.devices.reader import create_bpm
 
-from scipy.stats import linregress
 
 # Setup logging
 logger = logging.getLogger("auto_tcav_phasing")
@@ -73,6 +65,13 @@ class MLTCAVPhasing(BaseModel):
         start_amp = self.tcav.amplitude
         start_phase = self.tcav.phase
         logger.info(f"Initial TCAV amplitude: {start_amp}, phase: {start_phase}")
+        logger.debug(
+            "Optimization settings: n_initial_points=%s n_iterations=%s scan_range=%s min_transmission=%s",
+            self.n_initial_points,
+            self.n_iterations,
+            self.max_scan_range,
+            self.min_transmission,
+        )
 
         # run optimization - if an error is raised, reset the scan values
         try:
@@ -90,7 +89,9 @@ class MLTCAVPhasing(BaseModel):
 
             # run optimization
             for i in range(self.n_iterations):
-                if self.X.data.min()["offset"] < 1e-2:
+                best_offset = self.X.data["offset"].min()
+                logger.debug("Iteration %d/%d current best offset=%s", i + 1, self.n_iterations, best_offset)
+                if best_offset < 1e-2:
                     logger.info("Converged")
                     break
 
@@ -99,6 +100,7 @@ class MLTCAVPhasing(BaseModel):
 
             final_phase = float(self.X.vocs.select_best(self.X.data)[2]["phase"])
             logger.info(f"setting final phase to {final_phase}")
+            logger.debug("Optimization data points collected: %s", len(self.X.data))
 
             self.tcav.phase = final_phase
 
@@ -112,6 +114,7 @@ class MLTCAVPhasing(BaseModel):
         finally:
             self.tcav.amplitude = start_amp
             logger.info("Restored original TCAV amplitude.")
+            logger.info("TCAV phase optimization complete.")
 
             return self.X
 
@@ -188,7 +191,9 @@ def run_automatic_tcav_phasing(env):
         verbose=False,
         max_scan_range=[200,220]
     )
+    logger.debug("Configured MLTCAVPhasing with wait_time=%s max_scan_range=%s", phaser.wait_time, phaser.max_scan_range)
 
     X = phaser.run()
+    logger.info("Automatic TCAV phasing finished. Optimized phase: %s", phaser.optimized_phase)
 
     return X

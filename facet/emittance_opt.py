@@ -1,21 +1,36 @@
 import sys
 import time
+import logging
+from xopt import Xopt, Evaluator, VOCS
+from xopt.generators.bayesian import ExpectedImprovementGenerator
+
+
+logger = logging.getLogger("injector_emittance_opt")
 
 def optimize_injector_emittance(env, dump_location):
+    logger.info("Starting injector emittance optimization.")
     env.emittance_config_fname = (
         "/home/fphysics/rroussel/e331/Badger-Resources/facet/plugins/environments/inj_emit/emittance_measurement_configs/PROF10571.yaml"
     )
     env.save_directory = "data/"
+    logger.debug(
+        "Configured emittance optimization with config=%s save_directory=%s dump_location=%s",
+        env.emittance_config_fname,
+        env.save_directory,
+        dump_location,
+    )
 
     def evaluate(inputs):
+        logger.debug("Evaluating injector settings: %s", inputs)
         env.set_variables(inputs)
     
-        time.sleep(0.1)  # Simulate some processing time
+        time.sleep(0.1)
     
         # Get the output from the environment
         # note that output will contain many results, not just emittance_x
         # see FACET-II injector badger environment for details
         output = env.get_observables(["emittance_x"])
+        logger.debug("Evaluation output keys: %s", list(output.keys()))
     
         return output
 
@@ -40,17 +55,23 @@ def optimize_injector_emittance(env, dump_location):
         generator=generator,
         dump_file=f"5d_emittance_opt_{int(time.time())}.yaml",
     )
+    logger.debug("Created Xopt object with dump file: %s", X.dump_file)
 
     # evaluate the current point and two random points
+    logger.info("Running initial evaluations (current + 2 random points).")
     X.evaluate_data(env.get_variables(X.vocs.variable_names))
     X.random_evaluate(2)
 
-    for i in range(1):
-        print(i)
+    for i in range(5):
+        logger.debug("Running optimization step %d/5", i + 1)
         X.step()
 
     # evaluate the best point
-    X.evaluate_data(X.vocs.select_best(X.data)[2])
+    best = X.vocs.select_best(X.data)[2]
+    logger.info("Evaluating best point from optimization: %s", best)
+    X.evaluate_data(best)
+
+    logger.info("Completed injector emittance optimization.")
 
     return X
 
