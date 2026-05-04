@@ -1,12 +1,11 @@
 import logging
 
-logger = logging.getLogger("auto_6d")
-
 from auto_emittance import run_automatic_emittance
 from lcls_tools.common.data.saver import H5Saver
 import time
 import pandas as pd
-import yaml
+
+logger = logging.getLogger("auto_6d")
 
 
 def run_automatic_6d_measurement(env, save_filename):
@@ -14,17 +13,17 @@ def run_automatic_6d_measurement(env, save_filename):
     Does the following:
     1. Insert PROF10571
     2. Run automatic emittance measurement with TCAV off.
-    4. Run automatic emittance measurement with TCAV on.
-    5. Remove PROF10571
-    6. Run automatic emittance measurement with TCAV off.
-    7. Run automatic emittance measurement with TCAV on.
+    3. Run automatic emittance measurement with TCAV on.
+    4. Remove PROF10571
+    5. Run automatic emittance measurement with TCAV off.
+    6. Run automatic emittance measurement with TCAV on.
 
     """
     saver = H5Saver()
 
     # turn off TCAV
-    env.tcav.amplitude = 0.0
-    time.sleep(5.0)
+    env.tcav.mode_config = "STDBY"
+    time.sleep(2.0)
 
     data = {}
 
@@ -39,8 +38,8 @@ def run_automatic_6d_measurement(env, save_filename):
     saver.dump(data, save_filename)
 
     # turn on TCAV
-    env.tcav.amplitude = env.tcav_on_amp
-    time.sleep(5.0)
+    env.tcav.mode_config = "ACCEL_STDBY"
+    time.sleep(2.0)
 
     # run automatic emittance measurement with TCAV on
     logger.info("running PROF10571 quad scan tcav on")
@@ -53,11 +52,12 @@ def run_automatic_6d_measurement(env, save_filename):
     saver.dump(data, save_filename)
 
     # remove PROF10571 and insert PROF10711
-    env.set_screen("PROF10711")
+    env.screens["PROF10571"].target = 0
+    env.screens["PROF10711"].target = 1
 
     # turn off TCAV
-    env.tcav.amplitude = 0.0
-    time.sleep(5.0)
+    env.tcav.mode_config = "STDBY"
+    time.sleep(2.0)
 
     # run automatic emittance measurement with TCAV off
     logger.info("running PROF10711 quad scan tcav off")
@@ -70,8 +70,8 @@ def run_automatic_6d_measurement(env, save_filename):
     saver.dump(data, save_filename)
 
     # turn on TCAV
-    env.tcav.amplitude = env.tcav_on_amp
-    time.sleep(5.0)
+    env.tcav.mode_config = "ACCEL_STDBY"
+    time.sleep(2.0)
 
     # run automatic emittance measurement with TCAV on
     logger.info("running PROF10711 quad scan tcav on")
@@ -81,7 +81,8 @@ def run_automatic_6d_measurement(env, save_filename):
     }
 
     # set the tcav amp back to 0.0
-    env.tcav.amplitude = 0.0
+    env.tcav.mode_config = "STDBY"
+    time.sleep(2.0)
 
     # save the results
     tracking_data = pd.concat([tracking_data, X.data], ignore_index=True)

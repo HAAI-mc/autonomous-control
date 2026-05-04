@@ -1,12 +1,8 @@
 import logging
 from xopt import Xopt, Evaluator, VOCS
 from xopt.generators.sequential import ExtremumSeekingGenerator
-from xopt.generators.bayesian.objectives import CustomXoptObjective
-from xopt.generators.bayesian.models.standard import StandardModelConstructor
 from botorch.exceptions.errors import OptimizationGradientError
 import numpy as np
-import torch
-from gpytorch.kernels import ScaleKernel, PolynomialKernel
 import traceback
 import epics
 import time
@@ -37,15 +33,22 @@ def get_local_region(center_point: dict, vocs: VOCS, fraction: float = 0.1) -> d
     for name in vocs.variable_names:
         bounds[name] = [
             np.max(
-                (center_point[name] - widths[name] * fraction, vocs.variables[name].domain[0])
+                (
+                    center_point[name] - widths[name] * fraction,
+                    vocs.variables[name].domain[0],
+                )
             ),
             np.min(
-                (center_point[name] + widths[name] * fraction, vocs.variables[name].domain[1])
+                (
+                    center_point[name] + widths[name] * fraction,
+                    vocs.variables[name].domain[1],
+                )
             ),
         ]
 
     logger.debug(f"Local region: {bounds}")
     return bounds
+
 
 bpms = [371, 425, 511, 525, 581, 631, 651]
 alignment_pvs = {
@@ -54,22 +57,14 @@ alignment_pvs = {
             f"XCOR:IN10:{ele}:BCTRL" for ele in [221, 311, 381, 411, 491, 521, 641]
         ]
         + [f"YCOR:IN10:{ele}:BCTRL" for ele in [222, 312, 382, 412, 492, 522, 642]],
-        "bpms": [
-            f"BPMS:IN10:{ele}:X" for ele in bpms
-        ]
+        "bpms": [f"BPMS:IN10:{ele}:X" for ele in bpms]
         + [f"BPMS:IN10:{ele}:Y" for ele in bpms],
     },
-    "LI11312":
-    {
-        "corrector_pvs": [
-            f"XCOR:IN10:{ele}:BCTRL" for ele in [721, 761]
-        ] + [
-            f"XCOR:LI11:{ele}:BCTRL" for ele in [104,140,202,272,304]
-        ]
-        + [f"YCOR:IN10:{ele}:BCTRL" for ele in [722, 762]
-          ]+ [
-            f"YCOR:LI11:{ele}:BCTRL" for ele in [105,141,203,273,305,321]
-        ],
+    "LI11312": {
+        "corrector_pvs": [f"XCOR:IN10:{ele}:BCTRL" for ele in [721, 761]]
+        + [f"XCOR:LI11:{ele}:BCTRL" for ele in [104, 140, 202, 272, 304]]
+        + [f"YCOR:IN10:{ele}:BCTRL" for ele in [722, 762]]
+        + [f"YCOR:LI11:{ele}:BCTRL" for ele in [105, 141, 203, 273, 305, 321]],
         "bpms": [
             "BPMS:IN10:771:X",
             "BPMS:IN10:781:X",
@@ -91,19 +86,17 @@ alignment_pvs = {
             "BPMS:LI11:333:Y",
             "BPMS:LI11:358:Y",
             "BPMS:LI11:362:Y",
-        ]
-
-    }
-
+        ],
+    },
 }
 
 
 def run_automatic_alignment(
-    env, 
-    to_screen_name="PROF571", 
-    n_steps=100, 
-    old_data=None, 
-    target_value=1.0, 
+    env,
+    to_screen_name="PROF571",
+    n_steps=100,
+    old_data=None,
+    target_value=1.0,
     region_fraction=0.15,
     dump_location=".",
 ):
@@ -116,13 +109,13 @@ def run_automatic_alignment(
         to_screen_name (str): The name of the screen to align to. Default is "PROF571".
 
     """
-    #env.set_screen(to_screen_name)
+    # env.set_screen(to_screen_name)
 
     logger.info(f"Starting automatic alignment for screen: {to_screen_name}")
     # if just transporting beam to OTRDG02, use all BPMs except 470 and 520
     pvs = alignment_pvs[to_screen_name]["corrector_pvs"]
     bpm_observables = alignment_pvs[to_screen_name]["bpms"]
-    
+
     temp_vocs = VOCS(variables=env.get_bounds(pvs), observables=[])
     local_region = get_local_region(
         env.get_variables(temp_vocs.variables.keys()), temp_vocs, region_fraction
@@ -131,8 +124,8 @@ def run_automatic_alignment(
     def eval(inputs):
         logger.debug("evaluating point")
         try:
-            for name,val in inputs.items():
-                epics.caput(name,val)
+            for name, val in inputs.items():
+                epics.caput(name, val)
 
             time.sleep(0.25)
         except TransmissionError:
@@ -157,11 +150,11 @@ def run_automatic_alignment(
             if name in bpm_signals:
                 bpm_signals.pop(name)
 
-        return {"norm": norm, "transmission":transmission} | bpm_signals
+        return {"norm": norm, "transmission": transmission} | bpm_signals
 
     vocs = VOCS(
         variables=local_region,
-        objectives={"norm":"MINIMIZE"},
+        objectives={"norm": "MINIMIZE"},
     )
 
     generator = ExtremumSeekingGenerator(
@@ -170,11 +163,13 @@ def run_automatic_alignment(
     evaluator = Evaluator(function=eval)
 
     X = Xopt(
-        vocs=vocs, 
-        generator=generator, 
-        evaluator=evaluator, 
+        vocs=vocs,
+        generator=generator,
+        evaluator=evaluator,
         strict=True,
-        dump_file=os.path.join(dump_location,f"beam_steering_{to_screen_name}_{int(time.time())}.yaml")
+        dump_file=os.path.join(
+            dump_location, f"beam_steering_{to_screen_name}_{int(time.time())}.yaml"
+        ),
     )
 
     logger.info("Starting evaluation")
