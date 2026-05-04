@@ -9,7 +9,9 @@ import time
 import logging
 from xopt import Xopt, Evaluator, VOCS
 from xopt.generators.bayesian import ExpectedImprovementGenerator
-from xopt.vocs import select_best
+
+
+from optimization_utils import safe_evaluate_best_point
 
 logger = logging.getLogger("injector_emittance_opt")
 
@@ -104,9 +106,12 @@ def optimize_injector_emittance(env, dump_location):
         X.step()
 
     # evaluate the best point
-    best = select_best(X.vocs, X.data)[2]
-    logger.info("Evaluating best point from optimization: %s", best)
-    X.evaluate_data(best)
+    safe_evaluate_best_point(
+        X,
+        logger,
+        use_select_best=True,
+        context="injector emittance optimization",
+    )
 
     logger.info("Completed injector emittance optimization.")
 

@@ -9,6 +9,9 @@ import time
 from ml_tto.errors import TransmissionError
 import os
 
+
+from optimization_utils import safe_evaluate_best_point
+
 # Setup Logging
 logger = logging.getLogger("auto_alignment")
 
@@ -232,9 +235,11 @@ def run_automatic_alignment(
         raise
     finally:
         X.generator.reset()
-        result = X.evaluate_data(
-            X.data[X.vocs.variable_names].iloc[X.data.idxmin()["norm"]].to_dict()
+        safe_evaluate_best_point(
+            X,
+            logger,
+            metric_name="norm",
+            context="extremum-seeking alignment finalization",
         )
-        logger.info(f"evaluated the best point: norm={result['norm'][0]}")
 
     return X

@@ -39,6 +39,11 @@ from bax_algorithms.pathwise.optimize import DifferentialEvolution
 from bax_algorithms.utils import get_bax_mean_prediction, tuning_input_tensor_to_dict
 from bax_algorithms.visualize import visualize_virtual_measurement_result
 
+try:
+    from facet.optimization_utils import safe_evaluate_best_point
+except ImportError:
+    from optimization_utils import safe_evaluate_best_point
+
 from xopt.numerical_optimizer import LBFGSOptimizer
 
 import epics
@@ -395,8 +400,12 @@ def optimize_solenoid_alignment(env, dump_location):
     x_tuning_dict = tuning_input_tensor_to_dict(X.generator, x_tuning)
     best = x_tuning_dict | {"SOLN:IN10:121:BCTRL": init_settings["SOLN:IN10:121:BCTRL"]}
 
-    logger.info("Evaluating best point from optimization: %s", best)
-    X.evaluate_data(best)
+    safe_evaluate_best_point(
+        X,
+        logger,
+        best_inputs=best,
+        context="solenoid alignment optimization",
+    )
     logger.info("Completed solenoid alignment optimization.")
 
     fig, ax = visualize_virtual_measurement_result(
