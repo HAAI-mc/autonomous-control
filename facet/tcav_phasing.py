@@ -14,6 +14,7 @@ from xopt import Xopt, Evaluator, VOCS
 from xopt.generators.bayesian import (
     ExpectedImprovementGenerator,
 )
+from xopt.vocs import select_best
 
 from ml_tto.automatic_emittance.transmission import TransmissionMeasurement
 from lcls_tools.common.devices.bpm import BPM
@@ -64,9 +65,11 @@ class MLTCAVPhasing(BaseModel):
 
     name: str = "automatic_phase_scan"
     nominal_centroid: Optional[float] = None
-    max_scan_range: list[float] = [-10, 10]
+    # max_scan_range: list[float] = [-10, 10]
+    max_scan_range: list[float] = [-5, 5]
     evaluate_callback: Optional[Callable] = None
-    min_transmission: float = 0.8
+    # min_transmission: float = 0.8
+    min_transmission: float = 0.4
     dump_location: Optional[str] = None
 
     verbose: bool = False
@@ -82,7 +85,7 @@ class MLTCAVPhasing(BaseModel):
         float
             Best phase according to the VOCS objective.
         """
-        return float(self.X.vocs.select_best(self.X.data)[2]["phase"])
+        return float(select_best(self.X.vocs, self.X.data)[2]["phase"])
 
     def run(self):
         """Execute the TCAV phase optimization routine.
@@ -155,7 +158,7 @@ class MLTCAVPhasing(BaseModel):
                 logger.debug(f"Optimization step:{i}")
                 self.X.step()
 
-            final_phase = float(self.X.vocs.select_best(self.X.data)[2]["phase"])
+            final_phase = float(select_best(self.X.vocs, self.X.data)[2]["phase"])
             logger.info(f"setting final phase to {final_phase}")
             logger.debug("Optimization data points collected: %s", len(self.X.data))
 
@@ -198,8 +201,8 @@ class MLTCAVPhasing(BaseModel):
             vocs=vocs,
             evaluator=evaluator,
             generator=generator,
-            dump_file=os.fspath(
-                self.dump_location / f"tcav_phasing_{int(time.time())}.yaml"
+            dump_file=os.path.join(
+                self.dump_location, f"tcav_phasing_{int(time.time())}.yaml"
             )
             if self.dump_location
             else None,
@@ -229,7 +232,7 @@ class MLTCAVPhasing(BaseModel):
         logger.debug(f"TCAV Phase set to {inputs['phase']} degrees")
 
         transmission = self.transmission_measurement.measure()["transmission"]
-        if transmission > 0.8:
+        if transmission > self.min_transmission:
             offset = (self.nominal_centroid - self.bpm.y) ** 2
             centroid = self.bpm.y
         else:
@@ -273,10 +276,10 @@ def run_automatic_tcav_phasing(env, dump_location=None):
         bpm=env.downstream_bpm,
         tcav=tcav,
         transmission_measurement=env.transmission_measurement,
-        wait_time=3.0,
+        wait_time=0.5,
         evaluate_callback=eval_callback,
         verbose=False,
-        max_scan_range=[200, 220],
+        max_scan_range=[35.0, 55.0],
         dump_location=dump_location,
     )
     logger.debug(

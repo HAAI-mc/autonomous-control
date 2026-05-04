@@ -1,6 +1,6 @@
 import logging
 from xopt import Xopt, Evaluator, VOCS
-from xopt.generators.bayesian import ExpectedImprovementGenerator
+from xopt.generators.sequential import ExtremumSeekingGenerator
 from xopt.generators.bayesian.objectives import CustomXoptObjective
 from xopt.generators.bayesian.models.standard import StandardModelConstructor
 from botorch.exceptions.errors import OptimizationGradientError
@@ -8,8 +8,10 @@ import numpy as np
 import torch
 from gpytorch.kernels import ScaleKernel, PolynomialKernel
 import traceback
-
+import epics
+import time
 from ml_tto.errors import TransmissionError
+import os
 
 # Setup Logging
 logger = logging.getLogger("auto_alignment")
@@ -28,39 +30,82 @@ def get_local_region(center_point: dict, vocs: VOCS, fraction: float = 0.1) -> d
 
     bounds = {}
     widths = {
-        ele: vocs.variables[ele][1] - vocs.variables[ele][0]
+        ele: vocs.variables[ele].domain[1] - vocs.variables[ele].domain[0]
         for ele in vocs.variable_names
     }
 
     for name in vocs.variable_names:
         bounds[name] = [
             np.max(
-                (center_point[name] - widths[name] * fraction, vocs.variables[name][0])
+                (center_point[name] - widths[name] * fraction, vocs.variables[name].domain[0])
             ),
             np.min(
-                (center_point[name] + widths[name] * fraction, vocs.variables[name][1])
+                (center_point[name] + widths[name] * fraction, vocs.variables[name].domain[1])
             ),
         ]
 
     logger.debug(f"Local region: {bounds}")
     return bounds
 
-
-bpms = [221, 371, 425, 511, 525]
+bpms = [371, 425, 511, 525, 581, 631, 651]
 alignment_pvs = {
     "PROF571": {
         "corrector_pvs": [
-            f"XCOR:DIAG0:{ele}:BCTRL" for ele in [221, 311, 381, 411, 491, 521]
+            f"XCOR:IN10:{ele}:BCTRL" for ele in [221, 311, 381, 411, 491, 521, 641]
         ]
-        + [f"YCOR:DIAG0:{ele}:BCTRL" for ele in [222, 312, 382, 412, 492, 522]],
-        "bpms": [f"BPMS:DIAG0:{ele}:XSCDTH" for ele in bpms]
-        + [f"BPMS:DIAG0:{ele}:YSCDTH" for ele in bpms],
+        + [f"YCOR:IN10:{ele}:BCTRL" for ele in [222, 312, 382, 412, 492, 522, 642]],
+        "bpms": [
+            f"BPMS:IN10:{ele}:X" for ele in bpms
+        ]
+        + [f"BPMS:IN10:{ele}:Y" for ele in bpms],
     },
+    "LI11312":
+    {
+        "corrector_pvs": [
+            f"XCOR:IN10:{ele}:BCTRL" for ele in [721, 761]
+        ] + [
+            f"XCOR:LI11:{ele}:BCTRL" for ele in [104,140,202,272,304]
+        ]
+        + [f"YCOR:IN10:{ele}:BCTRL" for ele in [722, 762]
+          ]+ [
+            f"YCOR:LI11:{ele}:BCTRL" for ele in [105,141,203,273,305,321]
+        ],
+        "bpms": [
+            "BPMS:IN10:771:X",
+            "BPMS:IN10:781:X",
+            "BPMS:IN10:771:Y",
+            "BPMS:IN10:781:Y",
+            "BPMS:LI11:132:X",
+            "BPMS:LI11:201:X",
+            "BPMS:LI11:265:X",
+            "BPMS:LI11:301:X",
+            "BPMS:LI11:312:X",
+            "BPMS:LI11:132:Y",
+            "BPMS:LI11:201:Y",
+            "BPMS:LI11:265:Y",
+            "BPMS:LI11:301:Y",
+            "BPMS:LI11:312:Y",
+            "BPMS:LI11:333:X",
+            "BPMS:LI11:358:X",
+            "BPMS:LI11:362:X",
+            "BPMS:LI11:333:Y",
+            "BPMS:LI11:358:Y",
+            "BPMS:LI11:362:Y",
+        ]
+
+    }
+
 }
 
 
 def run_automatic_alignment(
-    env, to_screen_name="PROF571", n_steps=20, old_data=None, target_value=1.0
+    env, 
+    to_screen_name="PROF571", 
+    n_steps=100, 
+    old_data=None, 
+    target_value=1.0, 
+    region_fraction=0.15,
+    dump_location=".",
 ):
     """
     Runs the automatic alignment optimization process on DIAG0 to
@@ -71,30 +116,25 @@ def run_automatic_alignment(
         to_screen_name (str): The name of the screen to align to. Default is "PROF571".
 
     """
-    env.set_screen(to_screen_name)
+    #env.set_screen(to_screen_name)
 
     logger.info(f"Starting automatic alignment for screen: {to_screen_name}")
     # if just transporting beam to OTRDG02, use all BPMs except 470 and 520
     pvs = alignment_pvs[to_screen_name]["corrector_pvs"]
     bpm_observables = alignment_pvs[to_screen_name]["bpms"]
-
-    # set biasing for certain bpms
-    bpm_weights = {name: 1.0 for name in bpm_observables}
-    for name in bpm_weights:
-        if "330" in name or "390" in name:
-            bpm_weights[name] = 2.0
-    formatted_string = "\n".join([f"{name}:{val}" for name, val in bpm_weights.items()])
-    logger.debug(f"weighting bpm signal as follows:\n{formatted_string}")
-
+    
     temp_vocs = VOCS(variables=env.get_bounds(pvs), observables=[])
     local_region = get_local_region(
-        env.get_variables(temp_vocs.variables.keys()), temp_vocs, 0.15
+        env.get_variables(temp_vocs.variables.keys()), temp_vocs, region_fraction
     )
 
     def eval(inputs):
         logger.debug("evaluating point")
         try:
-            env.set_variables(inputs)
+            for name,val in inputs.items():
+                epics.caput(name,val)
+
+            time.sleep(0.25)
         except TransmissionError:
             logger.warning("Transmission error while setting variables.")
             # transmission below 0.8
@@ -117,62 +157,30 @@ def run_automatic_alignment(
             if name in bpm_signals:
                 bpm_signals.pop(name)
 
-        return {"norm": norm, "transmission": transmission} | bpm_signals
+        return {"norm": norm, "transmission":transmission} | bpm_signals
 
     vocs = VOCS(
         variables=local_region,
-        observables=bpm_observables,
-        constraints={"transmission": ["GREATER_THAN", 0.9]},
+        objectives={"norm":"MINIMIZE"},
     )
 
-    # create custom objective
-    class MyObjective(CustomXoptObjective):
-        def forward(self, samples, X=None):
-            return -torch.norm(
-                torch.stack(
-                    [
-                        samples[..., self.vocs.observable_names.index(name)]
-                        * bpm_weights[name]
-                        for name in bpm_observables
-                    ]
-                ),
-                dim=0,
-            )
-
-    class WeightedPolynomialKernel(PolynomialKernel):
-        has_lengthscale = True
-
-        def __init__(self, **kwargs):
-            super().__init__(**kwargs)
-
-        def forward(self, x1, x2, **params):
-            return super().forward(x1 * self.lengthscale**2, x2, **params)
-
-    covar_modules = {
-        name: ScaleKernel(
-            WeightedPolynomialKernel(power=1, ard_num_dims=vocs.n_variables)
-        )
-        for name in bpm_observables
-    }
-    gp_constructor = StandardModelConstructor(
-        covar_modules=covar_modules,
-    )
-
-    generator = ExpectedImprovementGenerator(
+    generator = ExtremumSeekingGenerator(
         vocs=vocs,
-        custom_objective=MyObjective(vocs),
-        gp_constructor=gp_constructor,
-        n_interpolate_points=4,
     )
-    generator.numerical_optimizer.max_time = 2.5
-
     evaluator = Evaluator(function=eval)
 
-    X = Xopt(vocs=vocs, generator=generator, evaluator=evaluator, strict=False)
+    X = Xopt(
+        vocs=vocs, 
+        generator=generator, 
+        evaluator=evaluator, 
+        strict=True,
+        dump_file=os.path.join(dump_location,f"beam_steering_{to_screen_name}_{int(time.time())}.yaml")
+    )
 
     logger.info("Starting evaluation")
     # evaluate
     X.evaluate_data(env.get_variables(vocs.variables.keys()))
+
     if X.data.min()["norm"] < target_value:
         logger.info("converged")
         return X
@@ -185,9 +193,7 @@ def run_automatic_alignment(
         logger.info("Adding old data.")
         X.add_data(old_data)
     else:
-        logger.info("Generating and evaluating random points.")
-        X.random_evaluate(10, custom_bounds=random_sample_region)
-
+        pass
     try:
         for i in range(n_steps):
             # if any of the evaluations are close to the objective value - use max travel distances
@@ -229,6 +235,7 @@ def run_automatic_alignment(
         logger.error("Exception:")
         logger.error(traceback.format_exc())
     finally:
+        X.generator.reset()
         result = X.evaluate_data(
             X.data[X.vocs.variable_names].iloc[X.data.idxmin()["norm"]].to_dict()
         )

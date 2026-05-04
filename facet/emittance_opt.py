@@ -9,7 +9,7 @@ import time
 import logging
 from xopt import Xopt, Evaluator, VOCS
 from xopt.generators.bayesian import ExpectedImprovementGenerator
-
+from xopt.vocs import select_best
 
 logger = logging.getLogger("injector_emittance_opt")
 
@@ -30,9 +30,12 @@ def optimize_injector_emittance(env, dump_location):
     Xopt
         Configured and executed Xopt instance containing optimization data.
     """
+
+    # TODO: check data folder exists
+
     logger.info("Starting injector emittance optimization.")
     env.emittance_config_fname = "/home/fphysics/rroussel/e331/Badger-Resources/facet/plugins/environments/inj_emit/emittance_measurement_configs/PROF10571.yaml"
-    env.save_directory = "data/"
+    env.save_directory = os.path.join(dump_location, "data/")
     logger.debug(
         "Configured emittance optimization with config=%s save_directory=%s dump_location=%s",
         env.emittance_config_fname,
@@ -68,11 +71,11 @@ def optimize_injector_emittance(env, dump_location):
 
     vocs = VOCS(
         variables={
-            "SOLN:IN10:121:BCTRL": [0.390, 0.405],
+            "SOLN:IN10:121:BCTRL": [0.390, 0.41],
             "QUAD:IN10:121:BCTRL": [-0.008, 0.0085],
             "QUAD:IN10:122:BCTRL": [-0.008, 0.0085],
-            "QUAD:IN10:361:BCTRL": [-3, -2.5],
-            "QUAD:IN10:371:BCTRL": [2.5, 3],
+            # "QUAD:IN10:361:BCTRL": [-3, -2.5],
+            # "QUAD:IN10:371:BCTRL": [2.5, 3],
         },
         objectives={"emittance_mean": "MINIMIZE"},
         constraints={"min_joint_bmag": ["LESS_THAN", 1.5]},
@@ -85,8 +88,8 @@ def optimize_injector_emittance(env, dump_location):
         vocs=vocs,
         evaluator=evaluator,
         generator=generator,
-        dump_file=os.fspath(
-            dump_location / f"5d_emittance_opt_{int(time.time())}.yaml"
+        dump_file=os.path.join(
+            dump_location, f"5d_emittance_opt_{int(time.time())}.yaml"
         ),
     )
     logger.debug("Created Xopt object with dump file: %s", X.dump_file)
@@ -96,12 +99,12 @@ def optimize_injector_emittance(env, dump_location):
     X.evaluate_data(env.get_variables(X.vocs.variable_names))
     X.random_evaluate(2)
 
-    for i in range(5):
+    for i in range(3):
         logger.debug("Running optimization step %d/5", i + 1)
         X.step()
 
     # evaluate the best point
-    best = X.vocs.select_best(X.data)[2]
+    best = select_best(X.vocs, X.data)[2]
     logger.info("Evaluating best point from optimization: %s", best)
     X.evaluate_data(best)
 

@@ -11,7 +11,7 @@ import logging
 
 from xopt import Xopt, Evaluator, VOCS
 from xopt.generators.bayesian import ExpectedImprovementGenerator
-
+from xopt.vocs import select_best
 
 logger = logging.getLogger("energy_spread_opt")
 
@@ -76,12 +76,19 @@ def optimize_energy_spread(env, dump_location):
         logger.debug("Waiting for klystron phase to settle.")
         time.sleep(0.1)  # Simulate some processing time
         settle_polls = 0
+        readback_value = env.get_observables([klys_phase_readback_pv])[
+            klys_phase_readback_pv
+        ]
         while not np.isclose(
-            env.get_observables([klys_phase_readback_pv])[klys_phase_readback_pv],
+            readback_value,
             inputs[klys_phase_set_pv],
             atol=0.05,
         ):
-            time.sleep(0.1)
+            time.sleep(0.5)  # PV updates at 1 Hz
+            readback_value = env.get_observables([klys_phase_readback_pv])[
+                klys_phase_readback_pv
+            ]
+            logger.debug(f"measured readback: {readback_value}")
             settle_polls += 1
         logger.debug("Phase settled after %d polls.", settle_polls)
 
@@ -109,14 +116,14 @@ def optimize_energy_spread(env, dump_location):
     )
 
     evaluator = Evaluator(function=evaluate)
-    generator = ExpectedImprovementGenerator(vocs=vocs, n_interpolate_points=5)
+    generator = ExpectedImprovementGenerator(vocs=vocs)
 
     X = Xopt(
         vocs=vocs,
         evaluator=evaluator,
         generator=generator,
-        dump_file=os.fspath(
-            dump_location / f"energy_spread_minimization_{int(time.time())}.yaml"
+        dump_file=os.path.join(
+            dump_location, f"energy_spread_minimization_{int(time.time())}.yaml"
         ),
     )
     logger.debug(
@@ -128,12 +135,12 @@ def optimize_energy_spread(env, dump_location):
     logger.info("Running initial random evaluations.")
     X.random_evaluate(3)
 
-    for i in range(2):
+    for i in range(5):
         logger.debug("Running optimization step %d/2", i + 1)
         X.step()
 
     logger.info("Optimization loop complete; evaluating best point.")
-    best = X.vocs.select_best(X.data)[2]
+    best = select_best(X.vocs, X.data)[2]
     logger.debug("Best point selected: %s", best)
     X.evaluate_data(best)
     logger.info("Energy spread optimization finished.")
