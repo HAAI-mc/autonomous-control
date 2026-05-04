@@ -15,15 +15,36 @@ logger = logging.getLogger("auto_6d")
 
 @restore_on_error(context="auto_6d")
 def run_automatic_6d_measurement(env, save_filename):
-    """
-    Does the following:
-    1. Insert PROF10571
-    2. Run automatic emittance measurement with TCAV off.
-    3. Run automatic emittance measurement with TCAV on.
-    4. Remove PROF10571
-    5. Run automatic emittance measurement with TCAV off.
-    6. Run automatic emittance measurement with TCAV on.
+    """Run a full 6D emittance measurement sequence.
 
+    Performs quad scans on PROF10571 and PROF10711 with the TCAV both off and
+    on, saving incremental results after each step.
+
+    Sequence
+    --------
+    1. Insert PROF10571, TCAV off  — quad scan.
+    2. Insert PROF10571, TCAV on   — quad scan.
+    3. Swap to PROF10711, TCAV off — quad scan.
+    4. Swap to PROF10711, TCAV on  — quad scan.
+
+    Parameters
+    ----------
+    env : Any
+        Control environment providing TCAV control, screen insertion,
+        variable access, and emittance measurement interfaces.
+    save_filename : str or pathlib.Path
+        Output path for the HDF5 results file.  Intermediate results are
+        written after every measurement step.
+
+    Returns
+    -------
+    data : dict
+        Dictionary with keys ``"PROF10571_off"``, ``"PROF10571_on"``,
+        ``"PROF10711_off"``, ``"PROF10711_on"``; each value is a dict
+        containing the serialized emittance result and captured environment
+        variables.
+    tracking_data : pandas.DataFrame
+        Concatenated Xopt data frames from all four quad scans.
     """
     saver = H5Saver()
 

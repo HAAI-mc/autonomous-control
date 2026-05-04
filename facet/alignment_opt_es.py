@@ -17,10 +17,31 @@ logger = logging.getLogger("auto_alignment")
 
 
 def get_local_region(center_point: dict, vocs: VOCS, fraction: float = 0.1) -> dict:
-    """
-    calculates the bounds of a local region around a center point with side lengths
-    equal to a fixed fraction of the input space for each variable
+    """Calculate bounds of a local region around a center point.
 
+    Side lengths equal a fixed fraction of the full input-space range for each
+    variable, clamped to the VOCS bounds.
+
+    Parameters
+    ----------
+    center_point : dict
+        Mapping of variable name to current value.  Keys must exactly match
+        ``vocs.variable_names``.
+    vocs : VOCS
+        Xopt VOCS object defining variable names and bounds.
+    fraction : float, optional
+        Half-width of the local region as a fraction of the full variable range,
+        by default 0.1.
+
+    Returns
+    -------
+    dict
+        Mapping of variable name to ``[lower, upper]`` bound lists.
+
+    Raises
+    ------
+    KeyError
+        If ``center_point`` keys do not match ``vocs.variable_names``.
     """
     logger.debug("Calculating local region bounds.")
     if not center_point.keys() == set(vocs.variable_names):
@@ -104,14 +125,31 @@ def run_automatic_alignment(
     region_fraction=0.15,
     dump_location=".",
 ):
-    """
-    Runs the automatic alignment optimization process on DIAG0 to
-    `to_screen_name`.
+    """Run the extremum-seeking alignment optimization process.
 
-    Parameters:
-        env (Environment): The environment in which the optimization is performed.
-        to_screen_name (str): The name of the screen to align to. Default is "PROF571".
+    Parameters
+    ----------
+    env : Any
+        Control environment providing ``get_bounds``, ``get_variables``,
+        and ``get_observables``.
+    to_screen_name : str, optional
+        Screen name to align to, by default ``"PROF571"``.
+    n_steps : int, optional
+        Maximum number of extremum-seeking steps, by default 100.
+    old_data : pandas.DataFrame or None, optional
+        Previously collected data to seed the optimizer.
+    target_value : float, optional
+        BPM-norm convergence threshold, by default 1.0.
+    region_fraction : float, optional
+        Half-width of the search region as a fraction of variable range,
+        by default 0.15.
+    dump_location : str or pathlib.Path, optional
+        Directory for optimization dump files, by default ``"."``.
 
+    Returns
+    -------
+    Xopt
+        Optimizer instance containing all collected evaluations.
     """
     # env.set_screen(to_screen_name)
 
