@@ -1,6 +1,11 @@
 import logging
 
 from auto_emittance import run_automatic_emittance
+
+try:
+    from facet.optimization_utils import restore_on_error
+except ImportError:
+    from optimization_utils import restore_on_error
 from lcls_tools.common.data.saver import H5Saver
 import time
 import pandas as pd
@@ -8,6 +13,7 @@ import pandas as pd
 logger = logging.getLogger("auto_6d")
 
 
+@restore_on_error(context="auto_6d")
 def run_automatic_6d_measurement(env, save_filename):
     """
     Does the following:

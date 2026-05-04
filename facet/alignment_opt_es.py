@@ -10,7 +10,7 @@ from ml_tto.errors import TransmissionError
 import os
 
 
-from optimization_utils import safe_evaluate_best_point
+from optimization_utils import restore_on_error, safe_evaluate_best_point
 
 # Setup Logging
 logger = logging.getLogger("auto_alignment")
@@ -94,6 +94,7 @@ alignment_pvs = {
 }
 
 
+@restore_on_error(context="alignment_opt_es")
 def run_automatic_alignment(
     env,
     to_screen_name="PROF571",

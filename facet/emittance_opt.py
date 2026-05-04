@@ -11,11 +11,12 @@ from xopt import Xopt, Evaluator, VOCS
 from xopt.generators.bayesian import ExpectedImprovementGenerator
 
 
-from optimization_utils import safe_evaluate_best_point
+from optimization_utils import restore_on_error, safe_evaluate_best_point
 
 logger = logging.getLogger("injector_emittance_opt")
 
 
+@restore_on_error(context="emittance_opt")
 def optimize_injector_emittance(env, dump_location):
     """Run Bayesian optimization for injector emittance.
 

@@ -8,6 +8,11 @@ import os
 import time
 import logging
 from typing import Any, Optional, Callable
+
+try:
+    from facet.optimization_utils import restore_on_error
+except ImportError:
+    from optimization_utils import restore_on_error
 import numpy as np
 from pydantic import BaseModel, ConfigDict, PositiveFloat, PositiveInt
 from xopt import Xopt, Evaluator, VOCS
@@ -275,6 +280,7 @@ class MLTCAVPhasing(BaseModel):
             time.sleep(self.wait_time)
 
 
+@restore_on_error(context="tcav_phasing")
 def run_automatic_tcav_phasing(env, dump_location=None):
     """Create and run the automatic TCAV phasing controller.
 
