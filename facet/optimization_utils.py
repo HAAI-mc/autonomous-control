@@ -36,9 +36,7 @@ def restore_on_error(context: Optional[str] = None):
 
         @functools.wraps(fn)
         def wrapper(env: Any, *args: Any, **kwargs: Any) -> Any:
-            return run_script_with_restore(
-                fn, env, *args, context=label, **kwargs
-            )
+            return run_script_with_restore(fn, env, *args, context=label, **kwargs)
 
         return wrapper
 
