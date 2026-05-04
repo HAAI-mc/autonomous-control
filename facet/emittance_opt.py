@@ -105,7 +105,6 @@ def optimize_injector_emittance(env, dump_location):
         logger.debug("Running optimization step %d/5", i + 1)
         X.step()
 
-    # evaluate the best point
     safe_evaluate_best_point(
         X,
         logger,

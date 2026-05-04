@@ -1,4 +1,5 @@
 """Shared utilities for robust post-optimization reevaluation."""
+
 from typing import Any, Optional
 
 from xopt.vocs import select_best
@@ -77,12 +78,18 @@ def safe_evaluate_best_point(
                 best_idx = valid_metric.idxmin()
                 best_inputs = X.data.loc[best_idx, X.vocs.variable_names].to_dict()
 
+        logger.info("Evaluating best point during %s.", context)
         result = X.evaluate_data(best_inputs)
 
         if metric_name is not None and metric_name in result:
-            logger.info("evaluated the best point: %s=%s", metric_name, result[metric_name][0])
+            logger.info(
+                "Best point evaluated during %s: %s=%s",
+                context,
+                metric_name,
+                result[metric_name][0],
+            )
         else:
-            logger.info("evaluated the best point")
+            logger.info("Best point evaluated during %s.", context)
 
         return result
 
