@@ -57,6 +57,9 @@ class MLTCAVPhasing(BaseModel):
 
     n_measurement_shots: PositiveInt = 1
     wait_time: PositiveFloat = 2.0
+    phase_tolerance: PositiveFloat = 0.05
+    phase_settle_poll_interval: PositiveFloat = 0.5
+    max_phase_settle_polls: PositiveInt = 40
 
     n_initial_points: PositiveInt = 10
     n_iterations: PositiveInt = 10
@@ -162,21 +165,21 @@ class MLTCAVPhasing(BaseModel):
             logger.info(f"setting final phase to {final_phase}")
             logger.debug("Optimization data points collected: %s", len(self.X.data))
 
-            self.tcav.phase = final_phase
+            self._set_phase_and_wait(final_phase)
 
-        except Exception as e:
+        except Exception:
             logger.exception(
                 "Error during TCAV optimization, resetting to original phase"
             )
             self.tcav.phase = start_phase
-            raise e
+            raise
 
         finally:
             self.tcav.amplitude = start_amp
             logger.info("Restored original TCAV amplitude.")
             logger.info("TCAV phase optimization complete.")
 
-            return self.X
+        return self.X
 
     def create_xopt_object(self):
         """Instantiate an Xopt optimizer configured for TCAV phase.
@@ -226,8 +229,7 @@ class MLTCAVPhasing(BaseModel):
         """Evaluate the objective function for Bayesian optimization."""
         logger.debug(f"Evaluating input: {inputs}")
 
-        self.tcav.phase = inputs["phase"]
-        time.sleep(self.wait_time)
+        self._set_phase_and_wait(inputs["phase"])
 
         logger.debug(f"TCAV Phase set to {inputs['phase']} degrees")
 
@@ -248,6 +250,29 @@ class MLTCAVPhasing(BaseModel):
 
         logger.debug(f"Evaluation result: {result}")
         return result
+
+    def _set_phase_and_wait(self, target_phase: float) -> None:
+        """Set TCAV phase and verify readback settles within retry budget."""
+        self.tcav.phase = target_phase
+        settle_polls = 0
+        readback_phase = self.tcav.phase
+
+        while not np.isclose(readback_phase, target_phase, atol=self.phase_tolerance):
+            time.sleep(self.phase_settle_poll_interval)
+            readback_phase = self.tcav.phase
+            settle_polls += 1
+
+            if settle_polls >= self.max_phase_settle_polls:
+                msg = (
+                    "TCAV phase failed to settle within timeout: "
+                    f"target={target_phase} readback={readback_phase} "
+                    f"polls={settle_polls}"
+                )
+                logger.error(msg)
+                raise TimeoutError(msg)
+
+        if self.wait_time > 0:
+            time.sleep(self.wait_time)
 
 
 def run_automatic_tcav_phasing(env, dump_location=None):

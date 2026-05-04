@@ -229,6 +229,7 @@ def run_automatic_alignment(
     except Exception:
         logger.error("Exception:")
         logger.error(traceback.format_exc())
+        raise
     finally:
         X.generator.reset()
         result = X.evaluate_data(
@@ -236,4 +237,4 @@ def run_automatic_alignment(
         )
         logger.info(f"evaluated the best point: norm={result['norm'][0]}")
 
-        return X
+    return X
