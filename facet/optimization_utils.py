@@ -1,5 +1,6 @@
 """Shared utilities for robust post-optimization reevaluation."""
 
+import copy
 import functools
 import logging
 import traceback
@@ -8,6 +9,36 @@ from typing import Any, Callable, Optional
 from xopt.vocs import select_best
 
 _logger = logging.getLogger(__name__)
+
+
+def merge_config(
+    defaults: dict[str, Any], overrides: Optional[dict[str, Any]] = None
+) -> dict[str, Any]:
+    """Merge nested configuration overrides into a default dictionary.
+
+    Parameters
+    ----------
+    defaults : dict[str, Any]
+        Default configuration values.
+    overrides : dict[str, Any], optional
+        Override values, typically loaded from a config file.
+
+    Returns
+    -------
+    dict[str, Any]
+        Deep-copied merged configuration dictionary.
+    """
+    merged = copy.deepcopy(defaults)
+    if overrides is None:
+        return merged
+
+    for key, value in overrides.items():
+        if isinstance(value, dict) and isinstance(merged.get(key), dict):
+            merged[key] = merge_config(merged[key], value)
+        else:
+            merged[key] = copy.deepcopy(value)
+
+    return merged
 
 
 def restore_on_error(context: Optional[str] = None):
@@ -123,7 +154,9 @@ def run_script_with_restore(
             )
             try:
                 env.set_variables(initial_state)
-                log.info("Machine state restored successfully after %s failure.", label)
+                log.warning(
+                    "Machine state restored successfully after %s failure.", label
+                )
             except Exception:
                 log.error(
                     "Machine restore FAILED after %s error — manual intervention may be required.\n%s",

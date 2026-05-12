@@ -11,12 +11,15 @@ import logging
 
 from xopt import Xopt, Evaluator, VOCS
 from xopt.generators.bayesian import ExpectedImprovementGenerator
-from xopt.vocs import select_best
+
+
+from optimization_utils import merge_config, restore_on_error, safe_evaluate_best_point
 
 logger = logging.getLogger("energy_spread_opt")
 
 
-def optimize_energy_spread(env, dump_location):
+@restore_on_error(context="e_spread_opt")
+def optimize_energy_spread(env, dump_location, config=None):
     """Optimize beam energy spread using klystron phase control.
 
     Parameters
@@ -26,6 +29,10 @@ def optimize_energy_spread(env, dump_location):
         measurement interfaces.
     dump_location : str or pathlib.Path
         Requested output location for optimization artifacts.
+    config : dict, optional
+        Configuration overrides, typically loaded from a config file. Supported
+        keys include PV names, phase bounds, objectives, and optimization loop
+        counts.
 
     Returns
     -------
@@ -37,14 +44,34 @@ def optimize_energy_spread(env, dump_location):
     RuntimeError
         If the dipole current state is not suitable for energy measurements.
     """
+    settings = merge_config(
+        {
+            "dipole_correct_state": 0.125,
+            "dipole_current_pv": "BEND:IN10:661:BACT",
+            "phase_set_pv": "KLYS:LI10:41:SFB_PDES",
+            "phase_readback_pv": "ACCL:LI10:41:PHASE_W0CH0",
+            "phase_span": 5.0,
+            "variables": None,
+            "objectives": {"rms_x": "MINIMIZE"},
+            "measurement_screen": "PROF10711",
+            "initial_random_evaluations": 3,
+            "n_steps": 5,
+            "settle_wait": 0.1,
+            "poll_interval": 0.5,
+            "phase_tolerance": 0.05,
+            "max_settle_polls": 40,
+        },
+        config,
+    )
     logger.info("Starting energy spread optimization.")
-    dipole_correct_state = 0.125
-    dipole_current_state = env.get_variables(["BEND:IN10:661:BACT"])[
-        "BEND:IN10:661:BACT"
+    dipole_correct_state = settings["dipole_correct_state"]
+    dipole_current_state = env.get_variables([settings["dipole_current_pv"]])[
+        settings["dipole_current_pv"]
     ]
 
-    klys_phase_set_pv = "KLYS:LI10:41:SFB_PDES"
-    klys_phase_readback_pv = "ACCL:LI10:41:PHASE_W0CH0"
+    klys_phase_set_pv = settings["phase_set_pv"]
+    klys_phase_readback_pv = settings["phase_readback_pv"]
+    max_settle_polls = settings["max_settle_polls"]
 
     if not np.isclose(dipole_correct_state, dipole_current_state, rtol=1e-2):
         logger.error(
@@ -55,8 +82,11 @@ def optimize_energy_spread(env, dump_location):
         raise RuntimeError("dipole not in correct state for energy measurements")
     logger.debug("Dipole state check passed: %s", dipole_current_state)
 
-    measurement = env.create_beamprofile_measurement("PROF10711")
-    logger.debug("Created beam profile measurement for PROF10711.")
+    measurement = env.create_beamprofile_measurement(settings["measurement_screen"])
+    logger.debug(
+        "Created beam profile measurement for %s.",
+        settings["measurement_screen"],
+    )
 
     def evaluate(inputs):
         """Evaluate beam size metrics for a trial phase setting.
@@ -74,7 +104,7 @@ def optimize_energy_spread(env, dump_location):
         logger.debug("Evaluating inputs: %s", inputs)
         env.set_variables(inputs)
         logger.debug("Waiting for klystron phase to settle.")
-        time.sleep(0.1)  # Simulate some processing time
+        time.sleep(settings["settle_wait"])
         settle_polls = 0
         readback_value = env.get_observables([klys_phase_readback_pv])[
             klys_phase_readback_pv
@@ -82,14 +112,22 @@ def optimize_energy_spread(env, dump_location):
         while not np.isclose(
             readback_value,
             inputs[klys_phase_set_pv],
-            atol=0.05,
+            atol=settings["phase_tolerance"],
         ):
-            time.sleep(0.5)  # PV updates at 1 Hz
+            time.sleep(settings["poll_interval"])
             readback_value = env.get_observables([klys_phase_readback_pv])[
                 klys_phase_readback_pv
             ]
             logger.debug(f"measured readback: {readback_value}")
             settle_polls += 1
+            if settle_polls >= max_settle_polls:
+                msg = (
+                    "Klystron phase failed to settle within timeout: "
+                    f"target={inputs[klys_phase_set_pv]} readback={readback_value} "
+                    f"polls={settle_polls}"
+                )
+                logger.error(msg)
+                raise TimeoutError(msg)
         logger.debug("Phase settled after %d polls.", settle_polls)
 
         # Get the output from the environment
@@ -107,12 +145,19 @@ def optimize_energy_spread(env, dump_location):
         initial_phase,
     )
 
+    variable_bounds = settings["variables"]
+    if variable_bounds is None:
+        variable_bounds = {
+            klys_phase_set_pv: [
+                initial_phase - settings["phase_span"],
+                initial_phase + settings["phase_span"],
+            ]
+        }
+
     # Define the VOCS for the optimization problem
     vocs = VOCS(
-        variables={
-            klys_phase_set_pv: [initial_phase - 5, initial_phase + 5],
-        },
-        objectives={"rms_x": "MINIMIZE"},
+        variables=variable_bounds,
+        objectives=settings["objectives"],
     )
 
     evaluator = Evaluator(function=evaluate)
@@ -133,16 +178,19 @@ def optimize_energy_spread(env, dump_location):
     )
 
     logger.info("Running initial random evaluations.")
-    X.random_evaluate(3)
+    X.random_evaluate(settings["initial_random_evaluations"])
 
-    for i in range(5):
-        logger.debug("Running optimization step %d/2", i + 1)
+    for i in range(settings["n_steps"]):
+        logger.debug("Running optimization step %d/%d", i + 1, settings["n_steps"])
         X.step()
 
-    logger.info("Optimization loop complete; evaluating best point.")
-    best = select_best(X.vocs, X.data)[2]
-    logger.debug("Best point selected: %s", best)
-    X.evaluate_data(best)
+    logger.info("Optimization loop complete.")
+    safe_evaluate_best_point(
+        X,
+        logger,
+        use_select_best=True,
+        context="energy spread optimization",
+    )
     logger.info("Energy spread optimization finished.")
 
     return X
