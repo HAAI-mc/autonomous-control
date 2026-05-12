@@ -6,6 +6,11 @@ from pathlib import Path
 import numpy as np
 import torch
 from xopt.generator import Generator
+from xopt.errors import VOCSError
+from pydantic import (
+    ValidationInfo,
+    field_validator,
+)
 
 # ── Normalization constants ────────────────────────────────────────────────────
 # [A, f1, tau1, tau2, tau_kick, sigma, y_shift, irf_sigma, alpha_kick, delta_T]
@@ -169,6 +174,17 @@ class AmortizedBOEDBunchGenerator(Generator):
     device:     str = 'cpu'
     grid_steps: int = 10
     block_size: int = 10
+
+    @field_validator("vocs", mode="after")
+    def validate_vocs(cls, v, info: ValidationInfo):
+        if v.n_constraints > 0 and not info.data["supports_constraints"]:
+            raise VOCSError("this generator does not support constraints")
+
+        # assert that the generator had no objectives
+        if not v.n_objectives == 0:
+            raise VOCSError("AmortizedBOEDBunchGenerator generator only supports problems with no objectives")
+
+        return v
 
     def __init__(self, model_dir, design_range, observable_name, vocs=None, **kwargs):
         super().__init__(vocs=vocs, **kwargs)
