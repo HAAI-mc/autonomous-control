@@ -11,6 +11,7 @@ from pydantic import (
     ValidationInfo,
     field_validator,
 )
+import matplotlib.pyplot as plt
 
 # ── Normalization constants ────────────────────────────────────────────────────
 # [A, f1, tau1, tau2, tau_kick, sigma, y_shift, irf_sigma, alpha_kick, delta_T]
@@ -265,3 +266,124 @@ class AmortizedBOEDBunchGenerator(Generator):
         )[:, 0].clamp(0., 1.)
         t_proposed = norm.denormalize_t0(samples_norm)
         return [{var: float(t)} for t in t_proposed]
+
+
+def get_results(X, grid_steps, settings):
+    """
+    Extracts and returns the measurement history, 
+    T0 posterior samples, and predictive curves from the Xopt instance.
+
+    Parameters
+    ----------
+    X : Xopt
+        The Xopt instance containing the optimization history and data.
+    grid_steps : int
+        The number of initial grid steps before BOED sampling begins.
+    settings : dict
+        The settings dictionary containing configuration parameters. See 
+        `run_automatic_schottky_scan()` for expected keys.
+    
+    Returns
+    -------
+    results : dict
+        A dictionary containing:
+        - 't0_samples': Array of T0 samples drawn from the last round model.
+    
+    """
+
+
+    simulator = TwoBunchDoubleExp(noise_type='gaussian')
+
+    t_vals = X.data[settings["variable_name"]].values
+    y_vals = X.data[settings["observable_name"]].values
+    order  = np.arange(len(t_vals))
+    norm   = X.generator._normalizer
+
+    # Normalized history for model input
+    xi_norm_all = norm.normalize_x(torch.tensor(t_vals, dtype=torch.float32).unsqueeze(1)).unsqueeze(0)
+    y_norm_all  = norm.normalize_y(torch.tensor(y_vals, dtype=torch.float32).unsqueeze(1)).unsqueeze(0)
+
+    # T0 posterior samples from the last round model
+    last_round = max(X.generator._available_rounds)
+    with torch.no_grad():
+        means, stds, log_weights = X.generator._load_model(last_round)(xi_norm_all, y_norm_all)
+    weights      = torch.softmax(log_weights.squeeze(0), dim=-1)
+    idx          = torch.multinomial(weights, settings["n_posterior_samples"], replacement=True)
+    samples_norm = (
+        means[0, idx, :] + stds[0, idx, :] * torch.randn(settings["n_posterior_samples"], means.shape[-1])
+    )[:, 0].clamp(0., 1.)
+    t0_samples   = norm.denormalize_t0(samples_norm).numpy()
+
+    if settings["visualize"]:
+        fig, axes = plt.subplots(3, 1, figsize=(10, 12))
+
+        # ── Panel 1: measurements ─────────────────────────────────────────────────────
+        ax = axes[0]
+        ax.scatter(t_vals[:grid_steps], y_vals[:grid_steps],
+                c='steelblue', s=40, zorder=4, label=f'grid (n={grid_steps})')
+        if len(t_vals) > grid_steps:
+            sc = ax.scatter(t_vals[grid_steps:], y_vals[grid_steps:],
+                            c=order[grid_steps:], cmap='YlOrRd', s=40, zorder=5, label='BOED')
+            plt.colorbar(sc, ax=ax, label='BOED step')
+        ax.set_xlabel('gunphase (°)')
+        ax.set_ylabel(settings["observable_name"])
+        ax.set_title('Measurements')
+        ax.legend(fontsize=8)
+        ax.grid(True)
+
+        # ── Panel 2: T0 posterior ─────────────────────────────────────────────────────
+        ax = axes[1]
+        med = float(np.median(t0_samples))
+        lo68, hi68 = float(np.percentile(t0_samples, 16)), float(np.percentile(t0_samples, 84))
+        ax.hist(t0_samples, bins=60, density=True, color='steelblue', alpha=0.75)
+        ax.axvline(med, color='k', lw=1.2, label=f'median={med:.2f}°')
+        ax.axvspan(lo68, hi68, alpha=0.15, color='k', label=f'68% [{lo68:.1f}, {hi68:.1f}]°')
+        ax.set_xlabel('T0 (°)')
+        ax.set_ylabel('density')
+        ax.set_title(f'T0 posterior  (round {last_round} model, n_obs={len(t_vals)})')
+        ax.legend(fontsize=8)
+        ax.grid(True)
+
+        # ── Panel 3: posterior predictive ─────────────────────────────────────────────
+        ax = axes[2]
+        full_path = find_full_param_model(settings["model_dir"])
+        if full_path is not None:
+            full_model = torch.jit.load(str(full_path), map_location='cpu')
+            full_model.eval()
+            with torch.no_grad():
+                m_f, s_f, lw_f = full_model(xi_norm_all, y_norm_all)
+            w_f     = torch.softmax(lw_f.squeeze(0), dim=-1)
+            idx_f   = torch.multinomial(w_f, settings["n_predictive_curves"], replacement=True)
+            samp_f  = (
+                m_f[0, idx_f, :] + s_f[0, idx_f, :] * torch.randn(settings["n_predictive_curves"], m_f.shape[-1])
+            ).clamp(0., 1.)
+
+            t0_phys_f  = norm.denormalize_t0(samp_f[:, 0]).numpy()
+            nu_phys_f  = denormalize_nuisance(samp_f[:, 1:]).numpy()
+
+            t_fine     = np.linspace(t_vals.min() - 2, t_vals.max() + 2, 400)
+            t_fine_t   = torch.tensor(t_fine, dtype=torch.float32).unsqueeze(1)
+            t_grid_t   = torch.tensor(t_vals[:grid_steps], dtype=torch.float32).unsqueeze(1)
+            curves_norm = compute_predictive_curves(
+                t0_phys_f, nu_phys_f, t_fine_t, t_grid_t, simulator, settings["n_predictive_curves"]
+            )
+
+            p025, p16, p50, p84, p975 = [np.percentile(curves_norm, q, axis=0) for q in (2.5, 16, 50, 84, 97.5)]
+            ax.fill_between(t_fine, p025, p975, color='tomato', alpha=0.20, label='±2σ')
+            ax.fill_between(t_fine, p16,  p84,  color='tomato', alpha=0.40, label='±1σ')
+            ax.plot(t_fine, p50, color='tomato', lw=1.5, label='median')
+
+            y_norm_obs = norm.normalize_y(torch.tensor(y_vals)).numpy()
+            ax.scatter(t_vals[:grid_steps], y_norm_obs[:grid_steps], c='steelblue', s=30, zorder=5, label='grid')
+            if len(t_vals) > grid_steps:
+                ax.scatter(t_vals[grid_steps:], y_norm_obs[grid_steps:], c='tomato', s=30, zorder=5, label='BOED')
+            ax.set_xlabel('gunphase (°)')
+            ax.set_ylabel('signal (normalized)')
+            ax.set_title('Posterior predictive')
+            ax.legend(fontsize=8)
+            ax.grid(True)
+        else:
+            ax.text(0.5, 0.5, 'No full_param_posterior_traced_horizon_*.pt found in model_dir',
+                    ha='center', va='center', transform=ax.transAxes, fontsize=10)
+            
+    return {"t0_samples": t0_samples}
