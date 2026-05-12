@@ -9,6 +9,9 @@ import torch
 from gpytorch.kernels import ScaleKernel, PolynomialKernel
 import traceback
 
+
+from optimization_utils import merge_config, restore_on_error, safe_evaluate_best_point
+
 from ml_tto.errors import TransmissionError
 
 # Setup Logging
@@ -16,10 +19,31 @@ logger = logging.getLogger("auto_alignment")
 
 
 def get_local_region(center_point: dict, vocs: VOCS, fraction: float = 0.1) -> dict:
-    """
-    calculates the bounds of a local region around a center point with side lengths
-    equal to a fixed fraction of the input space for each variable
+    """Calculate bounds of a local region around a center point.
 
+    Side lengths equal a fixed fraction of the full input-space range for each
+    variable, clamped to the VOCS bounds.
+
+    Parameters
+    ----------
+    center_point : dict
+        Mapping of variable name to current value.  Keys must exactly match
+        ``vocs.variable_names``.
+    vocs : VOCS
+        Xopt VOCS object defining variable names and bounds.
+    fraction : float, optional
+        Half-width of the local region as a fraction of the full variable range,
+        by default 0.1.
+
+    Returns
+    -------
+    dict
+        Mapping of variable name to ``[lower, upper]`` bound lists.
+
+    Raises
+    ------
+    KeyError
+        If ``center_point`` keys do not match ``vocs.variable_names``.
     """
     logger.debug("Calculating local region bounds.")
     if not center_point.keys() == set(vocs.variable_names):
@@ -59,36 +83,77 @@ alignment_pvs = {
 }
 
 
+@restore_on_error(context="alignment_opt")
 def run_automatic_alignment(
-    env, to_screen_name="PROF571", n_steps=20, old_data=None, target_value=1.0
+    env,
+    to_screen_name="PROF571",
+    n_steps=20,
+    old_data=None,
+    target_value=1.0,
+    config=None,
 ):
-    """
-    Runs the automatic alignment optimization process on DIAG0 to
-    `to_screen_name`.
+    """Run the Bayesian alignment optimization process on DIAG0.
 
-    Parameters:
-        env (Environment): The environment in which the optimization is performed.
-        to_screen_name (str): The name of the screen to align to. Default is "PROF571".
+    Parameters
+    ----------
+    env : Any
+        Control environment providing ``set_screen``, ``get_bounds``,
+        ``get_variables``, ``set_variables``, and ``get_observables``.
+    to_screen_name : str, optional
+        Screen name to align to, by default ``"PROF571"``.
+    n_steps : int, optional
+        Maximum number of Bayesian optimization steps, by default 20.
+    old_data : pandas.DataFrame or None, optional
+        Previously collected data to seed the optimizer.  When ``None``,
+        random initial evaluations are performed instead.
+    target_value : float, optional
+        BPM-norm convergence threshold; optimization stops early when
+        the best ``norm`` falls below this value, by default 1.0.
+    config : dict, optional
+        Configuration overrides, typically loaded from a config file. Supported
+        keys include ``screens``, ``constraints``, BPM weighting overrides, and
+        search-region or generator options.
 
+    Returns
+    -------
+    Xopt
+        Optimizer instance containing all collected evaluations.
     """
     env.set_screen(to_screen_name)
 
+    settings = merge_config(
+        {
+            "screens": alignment_pvs,
+            "constraints": {"transmission": ["GREATER_THAN", 0.9]},
+            "bpm_weight_overrides": {"330": 2.0, "390": 2.0},
+            "local_region_fraction": 0.15,
+            "random_sample_fraction": 0.1,
+            "initial_random_evaluations": 10,
+            "generator": {"n_interpolate_points": 4, "max_time": 2.5},
+        },
+        config,
+    )
+
     logger.info(f"Starting automatic alignment for screen: {to_screen_name}")
     # if just transporting beam to OTRDG02, use all BPMs except 470 and 520
-    pvs = alignment_pvs[to_screen_name]["corrector_pvs"]
-    bpm_observables = alignment_pvs[to_screen_name]["bpms"]
+    screen_config = settings["screens"][to_screen_name]
+    pvs = screen_config["corrector_pvs"]
+    bpm_observables = screen_config["bpms"]
 
     # set biasing for certain bpms
     bpm_weights = {name: 1.0 for name in bpm_observables}
     for name in bpm_weights:
-        if "330" in name or "390" in name:
-            bpm_weights[name] = 2.0
+        for token, weight in settings["bpm_weight_overrides"].items():
+            if token in name:
+                bpm_weights[name] = weight
     formatted_string = "\n".join([f"{name}:{val}" for name, val in bpm_weights.items()])
     logger.debug(f"weighting bpm signal as follows:\n{formatted_string}")
 
     temp_vocs = VOCS(variables=env.get_bounds(pvs), observables=[])
     local_region = get_local_region(
-        env.get_variables(temp_vocs.variables.keys()), temp_vocs, 0.15
+        env.get_variables(temp_vocs.variables.keys()),
+        temp_vocs,
+        settings["local_region_fraction"],
     )
 
     def eval(inputs):
@@ -122,7 +187,7 @@ def run_automatic_alignment(
     vocs = VOCS(
         variables=local_region,
         observables=bpm_observables,
-        constraints={"transmission": ["GREATER_THAN", 0.9]},
+        constraints=settings["constraints"],
     )
 
     # create custom objective
@@ -162,9 +227,9 @@ def run_automatic_alignment(
         vocs=vocs,
         custom_objective=MyObjective(vocs),
         gp_constructor=gp_constructor,
-        n_interpolate_points=4,
+        n_interpolate_points=settings["generator"]["n_interpolate_points"],
     )
-    generator.numerical_optimizer.max_time = 2.5
+    generator.numerical_optimizer.max_time = settings["generator"]["max_time"]
 
     evaluator = Evaluator(function=eval)
 
@@ -178,7 +243,9 @@ def run_automatic_alignment(
         return X
 
     random_sample_region = get_local_region(
-        env.get_variables(vocs.variables.keys()), X.vocs, fraction=0.1
+        env.get_variables(vocs.variables.keys()),
+        X.vocs,
+        fraction=settings["random_sample_fraction"],
     )
 
     if old_data is not None:
@@ -186,7 +253,10 @@ def run_automatic_alignment(
         X.add_data(old_data)
     else:
         logger.info("Generating and evaluating random points.")
-        X.random_evaluate(10, custom_bounds=random_sample_region)
+        X.random_evaluate(
+            settings["initial_random_evaluations"],
+            custom_bounds=random_sample_region,
+        )
 
     try:
         for i in range(n_steps):
@@ -228,10 +298,13 @@ def run_automatic_alignment(
     except Exception:
         logger.error("Exception:")
         logger.error(traceback.format_exc())
+        raise
     finally:
-        result = X.evaluate_data(
-            X.data[X.vocs.variable_names].iloc[X.data.idxmin()["norm"]].to_dict()
+        safe_evaluate_best_point(
+            X,
+            logger,
+            metric_name="norm",
+            context="alignment finalization",
         )
-        logger.info(f"evaluated the best point: norm={result['norm'][0]}")
 
-        return X
+    return X
