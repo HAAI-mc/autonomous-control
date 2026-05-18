@@ -166,10 +166,9 @@ def run_automatic_alignment(
     def eval(inputs):
         logger.debug("evaluating point")
         try:
-            for name, val in inputs.items():
-                epics.caput(name, val)
+            epics.caput_many(list(inputs.keys()), list(inputs.values()))
+            time.sleep(0.2)
 
-            time.sleep(0.25)
         except TransmissionError:
             logger.warning("Transmission error while setting variables.")
             # transmission below 0.8
@@ -201,6 +200,7 @@ def run_automatic_alignment(
 
     generator = ExtremumSeekingGenerator(
         vocs=vocs,
+        oscillation_size=0.01,
     )
     evaluator = Evaluator(function=eval)
 
@@ -226,47 +226,10 @@ def run_automatic_alignment(
         env.get_variables(vocs.variables.keys()), X.vocs, fraction=0.1
     )
 
-    if old_data is not None:
-        logger.info("Adding old data.")
-        X.add_data(old_data)
-    else:
-        pass
     try:
-        for i in range(n_steps):
-            # if any of the evaluations are close to the objective value - use max travel distances
-            # to restrict exploration
-            if (
-                np.any(X.data["norm"] < target_value * 3.0)
-                and X.generator.max_travel_distances is None
-            ):
-                logger.info(
-                    "found a point close to the optimum, evaluating that point and restricting max travel distances"
-                )
-                X.evaluate_data(
-                    X.data[X.vocs.variable_names]
-                    .iloc[X.data.idxmin()["norm"]]
-                    .to_dict()
-                )
-                X.generator.max_travel_distances = [0.25] * X.vocs.n_variables
-
-            logger.info(f"At step {i}")
-            if X.data.min()["norm"] < target_value:
-                logger.info("Converged")
-                break
-
-            # try running a bo step until we succeed -- max 5 tries
-            for _ in range(5):
-                try:
-                    X.step()
-                    break
-                except OptimizationGradientError:
-                    logger.warning(
-                        "gradient error, adding random evals and then trying again"
-                    )
-                    random_sample_region = get_local_region(
-                        env.get_variables(vocs.variables.keys()), X.vocs, fraction=0.1
-                    )
-                    X.random_evaluate(1, custom_bounds=random_sample_region)
+        for n in range(n_steps):
+            logger.info(n)
+            X.step()
 
     except Exception:
         logger.error("Exception:")

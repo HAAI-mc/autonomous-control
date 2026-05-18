@@ -338,8 +338,9 @@ def optimize_solenoid_alignment(env, dump_location):
         var_name: sorted(
             [0.99 * init_settings[var_name], 1.01 * init_settings[var_name]]
         )
-        for var_name in variable_names
+        for var_name in variable_names[:2]
     }
+    variables["SOLN:IN10:121:BCTRL"] = [0.97 * init_settings["SOLN:IN10:121:BCTRL"], 1.03 * init_settings["SOLN:IN10:121:BCTRL"]]
     # construct vocs
     vocs = VOCS(
         variables=variables,

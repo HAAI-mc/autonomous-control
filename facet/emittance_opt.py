@@ -17,7 +17,7 @@ logger = logging.getLogger("injector_emittance_opt")
 
 
 @restore_on_error(context="emittance_opt")
-def optimize_injector_emittance(env, dump_location):
+def optimize_injector_emittance(env, dump_location, n_steps=3):
     """Run Bayesian optimization for injector emittance.
 
     Parameters
@@ -74,7 +74,7 @@ def optimize_injector_emittance(env, dump_location):
 
     vocs = VOCS(
         variables={
-            "SOLN:IN10:121:BCTRL": [0.390, 0.41],
+            "SOLN:IN10:121:BCTRL": [0.39, 0.41],
             "QUAD:IN10:121:BCTRL": [-0.008, 0.0085],
             "QUAD:IN10:122:BCTRL": [-0.008, 0.0085],
             # "QUAD:IN10:361:BCTRL": [-3, -2.5],
@@ -102,7 +102,7 @@ def optimize_injector_emittance(env, dump_location):
     X.evaluate_data(env.get_variables(X.vocs.variable_names))
     X.random_evaluate(2)
 
-    for i in range(3):
+    for i in range(n_steps):
         logger.debug("Running optimization step %d/5", i + 1)
         X.step()
 
