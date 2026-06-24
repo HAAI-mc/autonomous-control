@@ -128,6 +128,12 @@ class MLTCAVPhasing(BaseModel):
         start_amp = self.tcav.amplitude
         start_phase = self.tcav.phase
         logger.info(f"Initial TCAV amplitude: {start_amp}, phase: {start_phase}")
+
+        if start_amp < 0.001:
+            logger.error("TCAV amplitude is too low for phasing optimization")
+            raise RuntimeError("TCAV amplitude is too low for phasing optimization")
+
+
         logger.debug(
             "Optimization settings: n_initial_points=%s n_iterations=%s scan_range=%s min_transmission=%s",
             self.n_initial_points,
@@ -206,7 +212,6 @@ class MLTCAVPhasing(BaseModel):
         generator = ExpectedImprovementGenerator(vocs=vocs)
         logger.debug("Xopt object created.")
         return Xopt(
-            vocs=vocs,
             evaluator=evaluator,
             generator=generator,
             dump_file=os.path.join(
@@ -281,7 +286,7 @@ class MLTCAVPhasing(BaseModel):
 
 
 @restore_on_error(context="tcav_phasing")
-def run_automatic_tcav_phasing(env, dump_location=None):
+def run_automatic_tcav_phasing(env, dump_location=None, max_scan_range=[35.0, 55.0]):
     """Create and run the automatic TCAV phasing controller.
 
     Parameters
@@ -290,7 +295,9 @@ def run_automatic_tcav_phasing(env, dump_location=None):
         Environment that provides TCAV, BPM, transmission measurement, and
         callback interfaces.
     dump_location : str or Path, optional
-        Directory to save optimization data dumps, by default None (no dumps).
+        Directory to save optmax_scan_rangeenvdumps, by default None (no dumps).
+    max_scan_range : list of float, optional
+        Range of phases to scan during optimization, by default [35.0, 55.0].
 
     Returns
     -------
@@ -310,7 +317,7 @@ def run_automatic_tcav_phasing(env, dump_location=None):
         wait_time=0.5,
         evaluate_callback=eval_callback,
         verbose=False,
-        max_scan_range=[35.0, 55.0],
+        max_scan_range=max_scan_range,
         dump_location=dump_location,
     )
     logger.debug(
