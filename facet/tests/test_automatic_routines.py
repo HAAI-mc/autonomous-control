@@ -1,5 +1,6 @@
 import os
 import sys
+import time
 import pytest
 import numpy as np
 
@@ -75,7 +76,9 @@ class TestAutomaticRoutines:
         env.tcav.amplitude = 0.3
 
         X = run_automatic_tcav_phasing(env, max_scan_range=[-10, 10])
-        
+
+        time.sleep(3.0)  # wait for the tcav to settle
+
         # final phase value should be zero and tcav amplitude should be set to 0.3
         assert np.isclose(env.tcav.amplitude, 0.3, atol=1e-3)
         assert np.isclose(env.tcav.phase, 0.0, atol=1.0), (
