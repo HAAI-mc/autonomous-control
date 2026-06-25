@@ -11,6 +11,7 @@ from typing import Any, Optional, Callable
 from tenacity import (
     Retrying,
     before_sleep_log,
+    retry_if_exception,
     retry_if_result,
     stop_after_attempt,
     wait_fixed,
@@ -35,6 +36,180 @@ from lcls_tools.common.devices.bpm import BPM
 # Setup logging
 logger = logging.getLogger("auto_tcav_phasing")
 
+# Module-level retry/settle configuration for TCAV property set/read behavior.
+TCAV_SETTLE_ATTEMPTS = 40
+TCAV_SETTLE_WAIT = 0.5
+TCAV_READ_RETRY_ATTEMPTS = 5
+TCAV_READ_RETRY_WAIT = 0.25
+TCAV_STATE_CHANGE_WAIT = 10.0  # seconds to wait after changing TCAV mode before reading values
+
+
+def _is_timeout_exception(exc: BaseException) -> bool:
+    """Return True when an exception appears to be timeout related."""
+    if isinstance(exc, TimeoutError):
+        return True
+    message = str(exc).lower()
+    return "timeout" in message or "timed out" in message
+
+
+def read_tcav_attr_with_retry(
+    tcav: Any,
+    attr_name: str,
+    *,
+    log: logging.Logger,
+):
+    """Read a TCAV attribute with retries on None values and timeout exceptions."""
+    retrying = Retrying(
+        stop=stop_after_attempt(TCAV_READ_RETRY_ATTEMPTS),
+        wait=wait_fixed(TCAV_READ_RETRY_WAIT),
+        retry=(
+            retry_if_result(lambda value: value is None)
+            | retry_if_exception(_is_timeout_exception)
+        ),
+        retry_error_callback=lambda _retry_state: None,
+        before_sleep=before_sleep_log(log, logging.DEBUG),
+    )
+    value = retrying(lambda: getattr(tcav, attr_name))
+
+    if value is None:
+        raise RuntimeError(
+            f"TCAV {attr_name} readback unavailable after {TCAV_READ_RETRY_ATTEMPTS} attempts"
+        )
+
+    return value
+
+
+def _set_tcav_property_and_wait(
+    tcav: Any,
+    *,
+    set_attr: str,
+    target_value: Any,
+    readback_attr: str,
+    log: logging.Logger,
+    atol: Optional[float] = None,
+    cast: Optional[Callable[[Any], Any]] = None,
+    label: Optional[str] = None,
+) -> None:
+    """Set a TCAV property and wait until the specified readback matches."""
+    logger.debug(
+        "Setting TCAV %s to %s and waiting for %s readback to match",
+        set_attr,
+        target_value,
+        readback_attr,
+    )
+    setattr(tcav, set_attr, target_value)
+
+    readback_value = None
+
+    def _is_settled() -> bool:
+        nonlocal readback_value
+        readback_value = read_tcav_attr_with_retry(
+            tcav,
+            readback_attr,
+            log=log,
+        )
+
+        if cast is not None:
+            try:
+                readback_value = cast(readback_value)
+            except (TypeError, ValueError) as exc:
+                raise RuntimeError(
+                    f"TCAV {readback_attr} readback is not valid: {readback_value!r}"
+                ) from exc
+
+        if atol is None:
+            return readback_value == target_value
+
+        return bool(np.isclose(readback_value, target_value, atol=atol))
+
+    retrying = Retrying(
+        stop=stop_after_attempt(TCAV_SETTLE_ATTEMPTS),
+        wait=wait_fixed(TCAV_SETTLE_WAIT),
+        retry=retry_if_result(lambda settled: not settled),
+        retry_error_callback=lambda _retry_state: False,
+        before_sleep=before_sleep_log(log, logging.DEBUG),
+    )
+    settled = retrying(_is_settled)
+
+    if not settled:
+        value_label = label or set_attr
+        raise TimeoutError(
+            f"TCAV {value_label} failed to settle within timeout: "
+            f"target={target_value} readback={readback_value} polls={TCAV_SETTLE_ATTEMPTS}"
+        )
+    
+    logger.debug(
+        "TCAV %s successfully set to %s (readback: %s)",
+        set_attr,
+        target_value,
+        readback_value,
+    )
+
+
+def set_tcav_phase_and_wait(
+    tcav: Any,
+    target_phase: float,
+    *,
+    phase_tolerance: float = 1e-3,
+    log: logging.Logger = logger,
+) -> None:
+    """Set TCAV phase and wait for phase_avgnt readback to match."""
+    target_phase = float(target_phase)
+    _set_tcav_property_and_wait(
+        tcav,
+        set_attr="phase",
+        target_value=target_phase,
+        readback_attr="phase_avgnt",
+        log=log,
+        atol=phase_tolerance,
+        cast=float,
+        label="phase",
+    )
+
+
+def set_tcav_amplitude_and_wait(
+    tcav: Any,
+    target_amplitude: float,
+    *,
+    amplitude_tolerance: float = 1e-3,
+    log: logging.Logger = logger,
+) -> None:
+    """Set TCAV amplitude and wait for amplitude_wocho readback to match."""
+    target_amplitude = float(target_amplitude)
+    _set_tcav_property_and_wait(
+        tcav,
+        set_attr="amplitude",
+        target_value=target_amplitude,
+        readback_attr="amplitude_wocho",
+        log=log,
+        atol=amplitude_tolerance,
+        cast=float,
+        label="amplitude",
+    )
+
+
+def set_tcav_mode_config_and_wait(
+    tcav: Any,
+    target_mode: str,
+    *,
+    log: logging.Logger = logger,
+) -> None:
+    """Set TCAV mode_config and wait for mode_config readback to match."""
+    current_mode = read_tcav_attr_with_retry(tcav, "mode_config", log=log)
+    _set_tcav_property_and_wait(
+        tcav,
+        set_attr="mode_config",
+        target_value=target_mode,
+        readback_attr="mode_config",
+        log=log,
+        cast=str,
+        label="mode",
+    )
+    # NOTE: there are no readbacks for the mode change, so we just wait a few seconds to let the TCAV update
+    if current_mode != target_mode:
+        logger.debug("waiting %s seconds for TCAV to update after mode change", TCAV_STATE_CHANGE_WAIT)
+        time.sleep(TCAV_STATE_CHANGE_WAIT)
+
 
 class MLTCAVPhasing(BaseModel):
     """Bayesian optimization routine for tuning TCAV phase.
@@ -49,8 +224,6 @@ class MLTCAVPhasing(BaseModel):
         Measurement helper for beam transmission during scans.
     n_measurement_shots : int, optional
         Number of shots per measurement, by default 1.
-    wait_time : float, optional
-        Settling time in seconds after actuator changes, by default 2.0.
     n_initial_points : int, optional
         Number of points in the initial coarse scan, by default 10.
     n_iterations : int, optional
@@ -68,12 +241,8 @@ class MLTCAVPhasing(BaseModel):
     transmission_measurement: TransmissionMeasurement
 
     n_measurement_shots: PositiveInt = 1
-    wait_time: PositiveFloat = 2.0
+    amplitude_tolerance: PositiveFloat = 1e-3
     phase_tolerance: PositiveFloat = 0.05
-    phase_settle_poll_interval: PositiveFloat = 0.5
-    max_phase_settle_polls: PositiveInt = 40
-    tcav_readback_retry_attempts: PositiveInt = 5
-    tcav_readback_retry_wait: PositiveFloat = 0.25
 
     n_initial_points: PositiveInt = 10
     n_iterations: PositiveInt = 10
@@ -82,8 +251,7 @@ class MLTCAVPhasing(BaseModel):
 
     name: str = "automatic_phase_scan"
     nominal_centroid: Optional[float] = None
-    # max_scan_range: list[float] = [-10, 10]
-    max_scan_range: list[float] = [-5, 5]
+    max_scan_range: list[float] = [-10, 10]
     evaluate_callback: Optional[Callable] = None
     # min_transmission: float = 0.8
     min_transmission: float = 0.4
@@ -122,21 +290,22 @@ class MLTCAVPhasing(BaseModel):
         logger.info("Starting TCAV phase optimization....")
         # make sure that the tcav is in accel mode
 
-        mode_config = self._read_tcav_attr_with_retry("mode_config")
-        if mode_config != "ACCEL_STDBY":
-            logger.error("TCAV is not in ACCEL_STDBY model")
-            raise RuntimeError("tcav must be in ACCEL_STDBY mode config")
 
         # acquire the beam posisition without the TCAV on
         self.nominal_centroid = self.acquire_nominal_centroid()
         logger.debug(f"Acquired nominal centroid: {self.nominal_centroid}")
 
+        mode_config = read_tcav_attr_with_retry(self.tcav, "mode_config", log=logger)
+        if mode_config != "ACCEL_STDBY":
+            logger.error("TCAV is not in ACCEL_STDBY mode")
+            raise RuntimeError("tcav must be in ACCEL_STDBY mode config")
+
         # create xopt object
         self.X = self.create_xopt_object()
 
         # get origonal values
-        start_amp = self._read_tcav_float_with_retry("amplitude")
-        start_phase = self._read_tcav_float_with_retry("phase")
+        start_amp = float(read_tcav_attr_with_retry(self.tcav, "amplitude", log=logger))
+        start_phase = float(read_tcav_attr_with_retry(self.tcav, "phase", log=logger))
         logger.info(f"Initial TCAV amplitude: {start_amp}, phase: {start_phase}")
 
         if start_amp < 0.001:
@@ -156,7 +325,9 @@ class MLTCAVPhasing(BaseModel):
         try:
             # initial coarse scan
             initial_scan_values = np.linspace(
-                start_phase - 5.0, start_phase + 5.0, self.n_initial_points
+                np.clip(start_phase - 5.0, self.max_scan_range[0], self.max_scan_range[1]),
+                np.clip(start_phase + 5.0, self.max_scan_range[0], self.max_scan_range[1]),
+                self.n_initial_points
             )
 
             # evaluate current point
@@ -186,17 +357,17 @@ class MLTCAVPhasing(BaseModel):
             logger.info(f"setting final phase to {final_phase}")
             logger.debug("Optimization data points collected: %s", len(self.X.data))
 
-            self._set_phase_and_wait(final_phase)
+            set_tcav_phase_and_wait(self.tcav, final_phase, phase_tolerance=self.phase_tolerance)
 
         except Exception:
             logger.exception(
                 "Error during TCAV optimization, resetting to original phase"
             )
-            self.tcav.phase = start_phase
+            set_tcav_phase_and_wait(self.tcav, start_phase, phase_tolerance=self.phase_tolerance)
             raise
 
         finally:
-            self.tcav.amplitude = start_amp
+            set_tcav_amplitude_and_wait(self.tcav, start_amp, amplitude_tolerance=self.amplitude_tolerance)
             logger.info("Restored original TCAV amplitude.")
             logger.info("TCAV phase optimization complete.")
 
@@ -234,13 +405,12 @@ class MLTCAVPhasing(BaseModel):
     def acquire_nominal_centroid(self) -> float:
         """Get centroid without TCAV streaking influence."""
         logger.info("Acquiring nominal centroid.")
-        self.tcav.mode_config = "STDBY"
-        time.sleep(self.wait_time)
+        set_tcav_mode_config_and_wait(self.tcav, "STDBY")
 
         result = self.bpm.y
+        logger.debug(f"Acquired nominal centroid: {result}")
 
-        self.tcav.mode_config = "ACCEL_STDBY"
-        time.sleep(self.wait_time)
+        set_tcav_mode_config_and_wait(self.tcav, "ACCEL_STDBY")
 
         logger.debug(f"Nominal centroid value: {result}")
         return result
@@ -249,7 +419,11 @@ class MLTCAVPhasing(BaseModel):
         """Evaluate the objective function for Bayesian optimization."""
         logger.debug(f"Evaluating input: {inputs}")
 
-        self._set_phase_and_wait(inputs["phase"])
+        set_tcav_phase_and_wait(
+            self.tcav,
+            target_phase=inputs["phase"],
+            phase_tolerance=self.phase_tolerance,
+        )
 
         logger.debug(f"TCAV Phase set to {inputs['phase']} degrees")
 
@@ -270,58 +444,6 @@ class MLTCAVPhasing(BaseModel):
 
         logger.debug(f"Evaluation result: {result}")
         return result
-
-    def _read_tcav_attr_with_retry(self, attr_name: str):
-        """Read a TCAV attribute with retries when readback is transiently unavailable."""
-        retrying = Retrying(
-            stop=stop_after_attempt(self.tcav_readback_retry_attempts),
-            wait=wait_fixed(self.tcav_readback_retry_wait),
-            retry=retry_if_result(lambda value: value is None),
-            before_sleep=before_sleep_log(logger, logging.WARNING),
-            retry_error_callback=lambda retry_state: retry_state.outcome.result(),
-        )
-        value = retrying(lambda: getattr(self.tcav, attr_name))
-
-        if value is None:
-            raise RuntimeError(
-                f"TCAV {attr_name} readback unavailable after "
-                f"{self.tcav_readback_retry_attempts} attempts"
-            )
-
-        return value
-
-    def _read_tcav_float_with_retry(self, attr_name: str) -> float:
-        """Read and validate a numeric TCAV readback."""
-        value = self._read_tcav_attr_with_retry(attr_name)
-        try:
-            return float(value)
-        except (TypeError, ValueError) as exc:
-            raise RuntimeError(
-                f"TCAV {attr_name} readback is not numeric: {value!r}"
-            ) from exc
-
-    def _set_phase_and_wait(self, target_phase: float) -> None:
-        """Set TCAV phase and verify readback settles within retry budget."""
-        self.tcav.phase = float(target_phase)
-        settle_polls = 0
-        readback_phase = self._read_tcav_float_with_retry("phase")
-
-        while not np.isclose(readback_phase, target_phase, atol=self.phase_tolerance):
-            time.sleep(self.phase_settle_poll_interval)
-            readback_phase = self._read_tcav_float_with_retry("phase")
-            settle_polls += 1
-
-            if settle_polls >= self.max_phase_settle_polls:
-                msg = (
-                    "TCAV phase failed to settle within timeout: "
-                    f"target={target_phase} readback={readback_phase} "
-                    f"polls={settle_polls}"
-                )
-                logger.error(msg)
-                raise TimeoutError(msg)
-
-        if self.wait_time > 0:
-            time.sleep(self.wait_time)
 
 
 @restore_on_error(context="tcav_phasing")
@@ -353,15 +475,13 @@ def run_automatic_tcav_phasing(env, dump_location=None, max_scan_range=[35.0, 55
         bpm=env.downstream_bpm,
         tcav=tcav,
         transmission_measurement=env.transmission_measurement,
-        wait_time=0.5,
         evaluate_callback=eval_callback,
         verbose=False,
         max_scan_range=max_scan_range,
         dump_location=dump_location,
     )
     logger.debug(
-        "Configured MLTCAVPhasing with wait_time=%s max_scan_range=%s",
-        phaser.wait_time,
+        "Configured MLTCAVPhasing with max_scan_range=%s",
         phaser.max_scan_range,
     )
 
