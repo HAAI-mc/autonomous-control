@@ -222,8 +222,6 @@ class MLTCAVPhasing(BaseModel):
         Measurement helper for beam transmission during scans.
     n_measurement_shots : int, optional
         Number of shots per measurement, by default 1.
-    wait_time : float, optional
-        Settling time in seconds after actuator changes, by default 2.0.
     n_initial_points : int, optional
         Number of points in the initial coarse scan, by default 10.
     n_iterations : int, optional
@@ -241,7 +239,6 @@ class MLTCAVPhasing(BaseModel):
     transmission_measurement: TransmissionMeasurement
 
     n_measurement_shots: PositiveInt = 1
-    wait_time: PositiveFloat = 2.0
     amplitude_tolerance: PositiveFloat = 1e-3
     phase_tolerance: PositiveFloat = 0.05
 
@@ -476,15 +473,13 @@ def run_automatic_tcav_phasing(env, dump_location=None, max_scan_range=[35.0, 55
         bpm=env.downstream_bpm,
         tcav=tcav,
         transmission_measurement=env.transmission_measurement,
-        wait_time=5.0,
         evaluate_callback=eval_callback,
         verbose=False,
         max_scan_range=max_scan_range,
         dump_location=dump_location,
     )
     logger.debug(
-        "Configured MLTCAVPhasing with wait_time=%s max_scan_range=%s",
-        phaser.wait_time,
+        "Configured MLTCAVPhasing with max_scan_range=%s",
         phaser.max_scan_range,
     )
 
