@@ -1,6 +1,5 @@
 import os
 import sys
-import time
 import pytest
 import numpy as np
 
@@ -13,7 +12,6 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 from plugins.environments.inj_emit import Environment
 from plugins.interfaces.epics import Interface
 
-from facet.auto_emittance import run_automatic_emittance
 from facet.tcav_phasing import (
     MLTCAVPhasing,
     run_automatic_tcav_phasing,
@@ -111,7 +109,6 @@ class TestAutomaticTcavPhasing:
             bpm=env.downstream_bpm,
             tcav=tcav,
             transmission_measurement=transmission_measurement,
-            wait_time=1e-6,
             max_scan_range=[-10, 10],
             verbose=False,
         )

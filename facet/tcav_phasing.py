@@ -195,6 +195,7 @@ def set_tcav_mode_config_and_wait(
     log: logging.Logger = logger,
 ) -> None:
     """Set TCAV mode_config and wait for mode_config readback to match."""
+    current_mode = read_tcav_attr_with_retry(tcav, "mode_config", log=log)
     _set_tcav_property_and_wait(
         tcav,
         set_attr="mode_config",
@@ -205,8 +206,9 @@ def set_tcav_mode_config_and_wait(
         label="mode",
     )
     # NOTE: there are no readbacks for the mode change, so we just wait a few seconds to let the TCAV update
-    logger.debug("waiting %s seconds for TCAV to update after mode change", TCAV_STATE_CHANGE_WAIT)
-    time.sleep(TCAV_STATE_CHANGE_WAIT)
+    if current_mode != target_mode:
+        logger.debug("waiting %s seconds for TCAV to update after mode change", TCAV_STATE_CHANGE_WAIT)
+        time.sleep(TCAV_STATE_CHANGE_WAIT)
 
 
 class MLTCAVPhasing(BaseModel):
@@ -295,15 +297,15 @@ class MLTCAVPhasing(BaseModel):
 
         mode_config = read_tcav_attr_with_retry(self.tcav, "mode_config", log=logger)
         if mode_config != "ACCEL_STDBY":
-            logger.error("TCAV is not in ACCEL_STDBY model")
+            logger.error("TCAV is not in ACCEL_STDBY mode")
             raise RuntimeError("tcav must be in ACCEL_STDBY mode config")
 
         # create xopt object
         self.X = self.create_xopt_object()
 
         # get origonal values
-        start_amp = read_tcav_attr_with_retry(self.tcav, "amplitude", log=logger)
-        start_phase = read_tcav_attr_with_retry(self.tcav, "phase", log=logger)
+        start_amp = float(read_tcav_attr_with_retry(self.tcav, "amplitude", log=logger))
+        start_phase = float(read_tcav_attr_with_retry(self.tcav, "phase", log=logger))
         logger.info(f"Initial TCAV amplitude: {start_amp}, phase: {start_phase}")
 
         if start_amp < 0.001:
@@ -365,7 +367,7 @@ class MLTCAVPhasing(BaseModel):
             raise
 
         finally:
-            set_tcav_amplitude_and_wait(self.tcav, start_amp)
+            set_tcav_amplitude_and_wait(self.tcav, start_amp, amplitude_tolerance=self.amplitude_tolerance)
             logger.info("Restored original TCAV amplitude.")
             logger.info("TCAV phase optimization complete.")
 
