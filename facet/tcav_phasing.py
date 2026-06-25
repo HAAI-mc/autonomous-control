@@ -41,6 +41,7 @@ TCAV_SETTLE_ATTEMPTS = 40
 TCAV_SETTLE_WAIT = 0.5
 TCAV_READ_RETRY_ATTEMPTS = 5
 TCAV_READ_RETRY_WAIT = 0.25
+TCAV_STATE_CHANGE_WAIT = 10.0  # seconds to wait after changing TCAV mode before reading values
 
 
 def _is_timeout_exception(exc: BaseException) -> bool:
@@ -204,8 +205,8 @@ def set_tcav_mode_config_and_wait(
         label="mode",
     )
     # NOTE: there are no readbacks for the mode change, so we just wait a few seconds to let the TCAV update
-    logger.debug("waiting 10 seconds for TCAV to update after mode change") 
-    time.sleep(10.0)
+    logger.debug("waiting %s seconds for TCAV to update after mode change", TCAV_STATE_CHANGE_WAIT)
+    time.sleep(TCAV_STATE_CHANGE_WAIT)
 
 
 class MLTCAVPhasing(BaseModel):
