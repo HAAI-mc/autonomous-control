@@ -194,7 +194,6 @@ def set_tcav_mode_config_and_wait(
     log: logging.Logger = logger,
 ) -> None:
     """Set TCAV mode_config and wait for mode_config readback to match."""
-    time.sleep(3.0)
     _set_tcav_property_and_wait(
         tcav,
         set_attr="mode_config",
@@ -204,6 +203,9 @@ def set_tcav_mode_config_and_wait(
         cast=str,
         label="mode",
     )
+    # NOTE: there are no readbacks for the mode change, so we just wait a few seconds to let the TCAV update
+    logger.debug("waiting 10 seconds for TCAV to update after mode change") 
+    time.sleep(10.0)
 
 
 class MLTCAVPhasing(BaseModel):
@@ -288,14 +290,15 @@ class MLTCAVPhasing(BaseModel):
         logger.info("Starting TCAV phase optimization....")
         # make sure that the tcav is in accel mode
 
-        mode_config = read_tcav_attr_with_retry(self.tcav, "mode_config", log=logger)
-        if mode_config != "ACCEL_STDBY":
-            logger.error("TCAV is not in ACCEL_STDBY model")
-            raise RuntimeError("tcav must be in ACCEL_STDBY mode config")
 
         # acquire the beam posisition without the TCAV on
         self.nominal_centroid = self.acquire_nominal_centroid()
         logger.debug(f"Acquired nominal centroid: {self.nominal_centroid}")
+
+        mode_config = read_tcav_attr_with_retry(self.tcav, "mode_config", log=logger)
+        if mode_config != "ACCEL_STDBY":
+            logger.error("TCAV is not in ACCEL_STDBY model")
+            raise RuntimeError("tcav must be in ACCEL_STDBY mode config")
 
         # create xopt object
         self.X = self.create_xopt_object()

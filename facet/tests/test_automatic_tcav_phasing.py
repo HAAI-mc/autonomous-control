@@ -26,6 +26,20 @@ import logging
 logging.basicConfig(level=logging.DEBUG)
 
 
+def _get_tcav_or_fail(env):
+    """Return a stable TCAV instance, failing hard when unavailable."""
+    try:
+        tcav = env.tcav
+    except Exception as exc:
+        pytest.fail(f"Unable to create TCAV object for utility test: {exc}")
+
+    # Ensure repeated property access in a test reuses the same TCAV object.
+    if hasattr(env, "_tcav"):
+        env._tcav = tcav
+
+    return tcav
+
+
 class TestAutomaticTcavPhasing:
     @pytest.fixture
     def env(self):
@@ -34,6 +48,8 @@ class TestAutomaticTcavPhasing:
         environment.save_directory = "."
         environment.median_filter_size = None
         environment.min_beamsize_cutoff = 2000
+        environment.upstream_bpm_name = "BPM10371"
+        environment.downstream_bpm_name = "BPM10651"
 
         # remove PVs that are not supported by the VA
         for name in list(environment.variables.keys()):
@@ -49,43 +65,52 @@ class TestAutomaticTcavPhasing:
         return environment
 
     def test_set_tcav_mode_config_and_wait(self, env):
+        tcav = _get_tcav_or_fail(env)
+
         for mode in ["STDBY", "ACCEL_STDBY"]:
-            set_tcav_mode_config_and_wait(env.tcav, mode)
-            assert env.tcav.mode_config == mode
+            set_tcav_mode_config_and_wait(tcav, mode)
+            assert tcav.mode_config == mode
 
     def test_set_tcav_amplitude_and_wait(self, env):
+        tcav = _get_tcav_or_fail(env)
+
         for target_amplitude in [0.0, 0.3, 0.0]:
-            set_tcav_mode_config_and_wait(env.tcav, "ACCEL_STDBY")
+            set_tcav_mode_config_and_wait(tcav, "ACCEL_STDBY")
             set_tcav_amplitude_and_wait(
-                env.tcav,
+                tcav,
                 target_amplitude,
             )
-            assert np.isclose(float(env.tcav.amplitude_wocho), target_amplitude, atol=1e-3)
+            assert np.isclose(float(tcav.amplitude_wocho), target_amplitude, atol=1e-3)
 
     def test_set_tcav_phase_and_wait(self, env):
+        tcav = _get_tcav_or_fail(env)
+
         for target_phase in [0.0, 8.0, 0.0]:
-            set_tcav_mode_config_and_wait(env.tcav, "ACCEL_STDBY")
+            set_tcav_mode_config_and_wait(tcav, "ACCEL_STDBY")
             set_tcav_phase_and_wait(
-                env.tcav,
+                tcav,
                 target_phase,
             )
-            assert np.isclose(float(env.tcav.phase_avgnt), target_phase, atol=0.5)
+            assert np.isclose(float(tcav.phase_avgnt), target_phase, atol=0.5)
 
     def test_acquire_nominal_centroid(self, env):
+        tcav = _get_tcav_or_fail(env)
+        transmission_measurement = env.transmission_measurement
+
         env.upstream_bpm_name = "BPM10371"
         env.downstream_bpm_name = "BPM10651"
 
         assert env.downstream_bpm is not None
 
         # Start from streaking-like conditions before calling acquire_nominal_centroid
-        set_tcav_mode_config_and_wait(env.tcav, "ACCEL_STDBY")
-        set_tcav_amplitude_and_wait(env.tcav, 0.3)
-        set_tcav_phase_and_wait(env.tcav, 8.0)
+        set_tcav_mode_config_and_wait(tcav, "ACCEL_STDBY")
+        set_tcav_amplitude_and_wait(tcav, 0.3)
+        set_tcav_phase_and_wait(tcav, 8.0)
 
         phaser = MLTCAVPhasing(
             bpm=env.downstream_bpm,
-            tcav=env.tcav,
-            transmission_measurement=env.transmission_measurement,
+            tcav=tcav,
+            transmission_measurement=transmission_measurement,
             wait_time=1e-6,
             max_scan_range=[-10, 10],
             verbose=False,
@@ -114,14 +139,12 @@ class TestAutomaticTcavPhasing:
         assert env.tcav.phase is not None
 
         # set the tcav amplitude and phase
-        env.tcav.amplitude = 0.3
-        env.tcav.phase = 8.0
-
-        time.sleep(10.0)  # wait for the tcav to settle
+        tcav = _get_tcav_or_fail(env)
+        set_tcav_mode_config_and_wait(tcav, "ACCEL_STDBY")
+        set_tcav_amplitude_and_wait(tcav, 0.3)
+        set_tcav_phase_and_wait(tcav, 8.0)        
 
         X = run_automatic_tcav_phasing(env, max_scan_range=[-10, 10])
-
-        time.sleep(3.0)  # wait for the tcav to settle
 
         # final phase value should be zero and tcav amplitude should be set to 0.3
         assert np.isclose(env.tcav.amplitude, 0.3, atol=1e-3)
