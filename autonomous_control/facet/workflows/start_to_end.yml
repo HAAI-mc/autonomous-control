@@ -1,0 +1,18 @@
+# start to end sequential workflow for FACET-II
+- type: optimize_laser_steering
+- type: optimize_alignment
+- type: minimize_injector_emittance
+  n_steps: 3
+  screen: PR10571
+  variables:
+    SOLN:IN10:121:BCTRL: [0.39, 0.41]
+    QUAD:IN10:121:BCTRL: [-0.008, 0.0085]
+    QUAD:IN10:122:BCTRL: [-0.008, 0.0085]
+      # "QUAD:IN10:361:BCTRL": [-3, -2.5],
+      # "QUAD:IN10:371:BCTRL": [2.5, 3],
+- type: tcav_phasing
+  max_scan_range: [-10.0, 10.0]
+  n_iterations: 3
+  n_initial_points: 5
+  tcav_on_amplitude: 0.3
+- type: minimize_energy_spread

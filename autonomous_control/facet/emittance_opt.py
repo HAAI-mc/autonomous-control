@@ -20,7 +20,7 @@ logger = logging.getLogger("injector_emittance_opt")
 
 
 @restore_on_error(context="emittance_opt")
-def optimize_injector_emittance(env, dump_location, n_steps=3):
+def optimize_injector_emittance(env, dump_location, variables, n_steps=3):
     """Run Bayesian optimization for injector emittance.
 
     Parameters
@@ -30,7 +30,8 @@ def optimize_injector_emittance(env, dump_location, n_steps=3):
         interfaces used by this routine.
     dump_location : str or pathlib.Path
         Requested output location for optimization artifacts.
-
+    variables : dict, optional
+        Mapping of variable names to bounds for optimization.
     Returns
     -------
     Xopt
@@ -77,11 +78,7 @@ def optimize_injector_emittance(env, dump_location, n_steps=3):
 
     vocs = VOCS(
         variables={
-            "SOLN:IN10:121:BCTRL": [0.39, 0.41],
-            "QUAD:IN10:121:BCTRL": [-0.008, 0.0085],
-            "QUAD:IN10:122:BCTRL": [-0.008, 0.0085],
-            # "QUAD:IN10:361:BCTRL": [-3, -2.5],
-            # "QUAD:IN10:371:BCTRL": [2.5, 3],
+            **variables,
         },
         objectives={"emittance_mean": "MINIMIZE"},
         constraints={"min_joint_bmag": ["LESS_THAN", 1.5]},

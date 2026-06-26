@@ -1,0 +1,9 @@
+minimize_injector_emittance:
+  n_steps: 3
+  screen: PR10571
+  variables:
+    SOLN:IN10:121:BCTRL: [0.39, 0.41]
+    QUAD:IN10:121:BCTRL: [-0.008, 0.0085]
+    QUAD:IN10:122:BCTRL: [-0.008, 0.0085]
+    # "QUAD:IN10:361:BCTRL": [-3, -2.5],
+    # "QUAD:IN10:371:BCTRL": [2.5, 3],

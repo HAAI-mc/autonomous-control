@@ -37,10 +37,10 @@ def run_automatic_workflow(
     """
     Run a sequence of automatic workflows in the FACET-II badger environment.
 
-    If no environment is provided, a new FACET-II badger environment will be created. 
-    The workflow is defined as a list of dictionaries, where each dictionary specifies 
-    the type of workflow to run and any necessary parameters. We iterate through the workflow steps, 
-    executing each one in order. After all steps are completed, the 
+    If no environment is provided, a new FACET-II badger environment will be created.
+    The workflow is defined as a list of dictionaries, where each dictionary specifies
+    the type of workflow to run and any necessary parameters. We iterate through the workflow steps,
+    executing each one in order. After all steps are completed, the
     environment can be reset to a safe state if requested.
 
     Example
