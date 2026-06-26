@@ -2,8 +2,12 @@ import os
 import sys
 import pytest
 
+badger_resources = os.getenv("BADGER_RESOURCES")
+if badger_resources is None:
+    pytest.skip("BADGER_RESOURCES is not configured", allow_module_level=True)
+
 # add the path that contains the facet environment
-sys.path.insert(0, os.path.join(os.environ["BADGER_RESOURCES"], "facet"))
+sys.path.insert(0, os.path.join(badger_resources, "facet"))
 
 # add the autonomous control directory to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))

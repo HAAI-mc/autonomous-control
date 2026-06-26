@@ -2,10 +2,15 @@ import os
 import sys
 import time
 import pytest
+
+badger_resources = os.getenv("BADGER_RESOURCES")
+if badger_resources is None:
+    pytest.skip("BADGER_RESOURCES is not configured", allow_module_level=True)
+
 import numpy as np
 
 # add the path that contains the facet environment
-sys.path.insert(0, os.path.join(os.environ["BADGER_RESOURCES"], "facet"))
+sys.path.insert(0, os.path.join(badger_resources, "facet"))
 
 # add the autonomous control directory to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
@@ -156,4 +161,3 @@ class TestAutomaticTcavPhasing:
         assert np.isclose(env.tcav.phase, 0.0, atol=0.5), (
             f"Final TCAV phase should be close to 0, but got {env.tcav.phase}"
         )
-

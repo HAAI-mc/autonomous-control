@@ -44,7 +44,7 @@ def run_automatic_workflow(
     >>>     {"type": "measure_emittance", "screen_name": "PROF10571"},
     >>>     {"type": "tcav_phasing", "max_scan_range": [-10, 10], "n_iterations": 3, "n_initial_points": 3},
     >>> ]
-    >>> run_automatic_workflow(workflow, dump_location="results.h5", reset_env_after=True, logging_level=logging.INFO)
+    >>> run_automatic_workflow(workflow, dump_location="results", reset_env_after=True, logging_level=logging.INFO)
     ```
     
     Parameters
@@ -56,7 +56,9 @@ def run_automatic_workflow(
     env : Any, optional
         An existing FACET-II badger environment. If not provided, a new environment will be created.
     dump_location : str, optional
-        If provided, the path to a file where the results of each workflow step will be saved. If not provided, results will not be saved to a file.
+        If provided, the path to an output directory where workflow steps may write
+        their own result artifacts. If not provided, step handlers will manage their
+        own default output locations.
     reset_env_after : bool, optional
         If True, the FACET-II badger environment will be reset to a safe state after all workflow steps have been executed. Default is True.
     logging_level : int, optional
@@ -96,6 +98,10 @@ def run_automatic_workflow(
         env = create_env()
     else:
         logging.info("Using provided FACET-II badger environment.")
+
+    if dump_location is not None:
+        os.makedirs(dump_location, exist_ok=True)
+        logging.info("Ensured workflow output directory exists: %s", dump_location)
 
     # reset the environment to a safe state before starting the workflow
     pre_reset_start = time.time()
