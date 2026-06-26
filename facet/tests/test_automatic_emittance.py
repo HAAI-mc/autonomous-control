@@ -53,5 +53,9 @@ class TestAutomaticEmittance:
         env.create_beamprofile_measurement("PROF10711").measure()
 
     def test_run_automatic_emittance_on_va(self, env):
-        result, fname, X = run_automatic_emittance(env, "PROF10571")
+        result, fname, X = run_automatic_emittance(
+            env,
+            dump_location=".",
+            screen_name="PROF10571",
+        )
         print(X)

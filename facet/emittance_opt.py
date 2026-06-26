@@ -11,13 +11,13 @@ from xopt import Xopt, Evaluator, VOCS
 from xopt.generators.bayesian import ExpectedImprovementGenerator
 
 
-from optimization_utils import restore_on_error, safe_evaluate_best_point
+from .optimization_utils import restore_on_error, safe_evaluate_best_point
 
 logger = logging.getLogger("injector_emittance_opt")
 
 
 @restore_on_error(context="emittance_opt")
-def optimize_injector_emittance(env, dump_location, n_steps=3):
+def optimize_injector_emittance(env, dump_location=None, *, n_steps=3):
     """Run Bayesian optimization for injector emittance.
 
     Parameters
@@ -28,15 +28,27 @@ def optimize_injector_emittance(env, dump_location, n_steps=3):
     dump_location : str or pathlib.Path
         Requested output location for optimization artifacts.
 
+    n_steps : int, optional
+        Number of Bayesian optimization steps.
+
     Returns
     -------
     Xopt
         Configured and executed Xopt instance containing optimization data.
     """
+    run_start_time = time.time()
+
+    if dump_location is None:
+        dump_location = "."
 
     # TODO: check data folder exists
 
     logger.info("Starting injector emittance optimization.")
+    logger.info(
+        "Injector emittance config: n_steps=%d dump_location=%s",
+        n_steps,
+        dump_location,
+    )
     env.emittance_config_fname = "/home/fphysics/rroussel/e331/Badger-Resources/facet/plugins/environments/inj_emit/emittance_measurement_configs/PROF10571.yaml"
     env.save_directory = os.path.join(dump_location, "data/")
     logger.debug(
@@ -114,5 +126,10 @@ def optimize_injector_emittance(env, dump_location, n_steps=3):
     )
 
     logger.info("Completed injector emittance optimization.")
+    logger.info(
+        "Injector emittance summary: evaluations=%d duration=%.2f s",
+        len(X.data),
+        time.time() - run_start_time,
+    )
 
     return X

@@ -1,10 +1,16 @@
 import os
 import sys
+import time
 import pytest
+
+badger_resources = os.getenv("BADGER_RESOURCES")
+if badger_resources is None:
+    pytest.skip("BADGER_RESOURCES is not configured", allow_module_level=True)
+
 import numpy as np
 
 # add the path that contains the facet environment
-sys.path.insert(0, os.path.join(os.environ["BADGER_RESOURCES"], "facet"))
+sys.path.insert(0, os.path.join(badger_resources, "facet"))
 
 # add the autonomous control directory to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
@@ -139,13 +145,19 @@ class TestAutomaticTcavPhasing:
         tcav = _get_tcav_or_fail(env)
         set_tcav_mode_config_and_wait(tcav, "ACCEL_STDBY")
         set_tcav_amplitude_and_wait(tcav, 0.3)
-        set_tcav_phase_and_wait(tcav, 8.0)        
+        set_tcav_phase_and_wait(tcav, 8.0) 
 
-        X = run_automatic_tcav_phasing(env, max_scan_range=[-10, 10])
+        time.sleep(5.0)  # wait for the VA to settle after changing the TCAV settings
+
+        X = run_automatic_tcav_phasing(
+            env,
+            max_scan_range=[-10, 10],
+            n_iterations=3,
+            n_initial_points=3,
+        )
 
         # final phase value should be zero and tcav amplitude should be set to 0.3
         assert np.isclose(env.tcav.amplitude, 0.3, atol=1e-3)
         assert np.isclose(env.tcav.phase, 0.0, atol=0.5), (
             f"Final TCAV phase should be close to 0, but got {env.tcav.phase}"
         )
-

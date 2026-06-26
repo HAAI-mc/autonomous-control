@@ -42,7 +42,7 @@ from bax_algorithms.visualize import visualize_virtual_measurement_result
 try:
     from facet.optimization_utils import safe_evaluate_best_point
 except ImportError:
-    from optimization_utils import safe_evaluate_best_point
+    from .optimization_utils import safe_evaluate_best_point
 
 from xopt.numerical_optimizer import LBFGSOptimizer
 
@@ -268,7 +268,13 @@ class BaxGenerator(BayesianGenerator):
         return eig
 
 
-def optimize_solenoid_alignment(env, dump_location):
+def optimize_solenoid_alignment(
+    env,
+    dump_location=None,
+    *,
+    initial_random_evaluations=2,
+    n_steps=30,
+):
     """Run BAX optimization for solenoid alignment.
 
     Parameters
@@ -278,16 +284,30 @@ def optimize_solenoid_alignment(env, dump_location):
         interfaces used by this routine.
     dump_location : str or pathlib.Path
         Requested output location for optimization artifacts.
+    initial_random_evaluations : int, optional
+        Number of random warm-start evaluations.
+    n_steps : int, optional
+        Number of BAX optimization iterations.
 
     Returns
     -------
     Xopt
         Configured and executed Xopt instance containing optimization data.
     """
+    run_start_time = time.time()
+
+    if dump_location is None:
+        dump_location = "."
 
     # TODO: check data folder exists
 
     logger.info("Starting BAX solenoid alignment optimization.")
+    logger.info(
+        "Solenoid alignment config: initial_random_evaluations=%d n_steps=%d dump_location=%s",
+        initial_random_evaluations,
+        n_steps,
+        dump_location,
+    )
     env.save_directory = os.path.join(dump_location, "data/")
     logger.debug(
         "Configured solenoid alignment optimization with save_directory=%s dump_location=%s",
@@ -385,13 +405,16 @@ def optimize_solenoid_alignment(env, dump_location):
     )
     logger.debug("Created Xopt object with dump file: %s", X.dump_file)
 
-    # evaluate the current point and two random points
-    logger.info("Running initial evaluations (current + 2 random points).")
+    # evaluate the current point and configurable random points
+    logger.info(
+        "Running initial evaluations (current + %d random points).",
+        initial_random_evaluations,
+    )
     X.evaluate_data(env.get_variables(X.vocs.variable_names))
-    X.random_evaluate(2)
+    X.random_evaluate(initial_random_evaluations)
 
-    for i in range(30):
-        logger.debug("Running optimization step %d/5", i + 1)
+    for i in range(n_steps):
+        logger.debug("Running optimization step %d/%d", i + 1, n_steps)
         X.step()
 
     mean_optimizer = DifferentialEvolution(
@@ -419,4 +442,11 @@ def optimize_solenoid_alignment(env, dump_location):
     )
 
     fig.savefig(os.path.join(dump_location, f"solenoid_alignment_opt_{ts}.png"))
+    logger.info(
+        "Solenoid alignment summary: evaluations=%d yaml=%s png=%s duration=%.2f s",
+        len(X.data),
+        X.dump_file,
+        os.path.join(dump_location, f"solenoid_alignment_opt_{ts}.png"),
+        time.time() - run_start_time,
+    )
     return X

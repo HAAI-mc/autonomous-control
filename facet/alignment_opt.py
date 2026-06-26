@@ -8,9 +8,10 @@ import numpy as np
 import torch
 from gpytorch.kernels import ScaleKernel, PolynomialKernel
 import traceback
+import time
 
 
-from optimization_utils import merge_config, restore_on_error, safe_evaluate_best_point
+from .optimization_utils import restore_on_error, safe_evaluate_best_point
 
 from ml_tto.errors import TransmissionError
 
@@ -86,11 +87,20 @@ alignment_pvs = {
 @restore_on_error(context="alignment_opt")
 def run_automatic_alignment(
     env,
+    dump_location=None,
+    *,
     to_screen_name="PROF571",
     n_steps=20,
     old_data=None,
     target_value=1.0,
-    config=None,
+    screens=None,
+    constraints=None,
+    bpm_weight_overrides=None,
+    local_region_fraction=0.15,
+    random_sample_fraction=0.1,
+    initial_random_evaluations=10,
+    generator_n_interpolate_points=4,
+    generator_max_time=2.5,
 ):
     """Run the Bayesian alignment optimization process on DIAG0.
 
@@ -99,51 +109,76 @@ def run_automatic_alignment(
     env : Any
         Control environment providing ``set_screen``, ``get_bounds``,
         ``get_variables``, ``set_variables``, and ``get_observables``.
+    dump_location : str or pathlib.Path, optional
+        Directory for optimization dump files. Present for signature
+        consistency; this routine currently does not write a dump file.
     to_screen_name : str, optional
-        Screen name to align to, by default ``"PROF571"``.
+        Screen name to align to.
     n_steps : int, optional
-        Maximum number of Bayesian optimization steps, by default 20.
+        Maximum number of Bayesian optimization steps.
     old_data : pandas.DataFrame or None, optional
-        Previously collected data to seed the optimizer.  When ``None``,
-        random initial evaluations are performed instead.
+        Previously collected data used to seed optimization.
     target_value : float, optional
-        BPM-norm convergence threshold; optimization stops early when
-        the best ``norm`` falls below this value, by default 1.0.
-    config : dict, optional
-        Configuration overrides, typically loaded from a config file. Supported
-        keys include ``screens``, ``constraints``, BPM weighting overrides, and
-        search-region or generator options.
+        Objective threshold for early stopping.
+    screens : dict, optional
+        Screen-to-corrector/BPM mapping overrides.
+    constraints : dict, optional
+        VOCS constraint overrides.
+    bpm_weight_overrides : dict, optional
+        Substring-based BPM weight overrides.
+    local_region_fraction : float, optional
+        Fractional local search-region size.
+    random_sample_fraction : float, optional
+        Fractional range used for random fallback evaluations.
+    initial_random_evaluations : int, optional
+        Number of random evaluations when no historical data is provided.
+    generator_n_interpolate_points : int, optional
+        ExpectedImprovement generator interpolation points.
+    generator_max_time : float, optional
+        Numerical optimizer max time in seconds.
 
     Returns
     -------
     Xopt
         Optimizer instance containing all collected evaluations.
     """
+    run_start_time = time.time()
+    if screens is None:
+        screens = alignment_pvs
+    if constraints is None:
+        constraints = {"transmission": ["GREATER_THAN", 0.9]}
+    if bpm_weight_overrides is None:
+        bpm_weight_overrides = {"330": 2.0, "390": 2.0}
+
     env.set_screen(to_screen_name)
 
-    settings = merge_config(
-        {
-            "screens": alignment_pvs,
-            "constraints": {"transmission": ["GREATER_THAN", 0.9]},
-            "bpm_weight_overrides": {"330": 2.0, "390": 2.0},
-            "local_region_fraction": 0.15,
-            "random_sample_fraction": 0.1,
-            "initial_random_evaluations": 10,
-            "generator": {"n_interpolate_points": 4, "max_time": 2.5},
-        },
-        config,
-    )
+    if dump_location is not None:
+        logger.debug("dump_location provided but ignored in alignment_opt: %s", dump_location)
 
     logger.info(f"Starting automatic alignment for screen: {to_screen_name}")
+    logger.info(
+        "Alignment config: n_steps=%d target_value=%s local_region_fraction=%s random_sample_fraction=%s initial_random_evaluations=%d",
+        n_steps,
+        target_value,
+        local_region_fraction,
+        random_sample_fraction,
+        initial_random_evaluations,
+    )
     # if just transporting beam to OTRDG02, use all BPMs except 470 and 520
-    screen_config = settings["screens"][to_screen_name]
+    screen_config = screens[to_screen_name]
     pvs = screen_config["corrector_pvs"]
     bpm_observables = screen_config["bpms"]
+    logger.info(
+        "Using %d correctors and %d BPM observables for %s.",
+        len(pvs),
+        len(bpm_observables),
+        to_screen_name,
+    )
 
     # set biasing for certain bpms
     bpm_weights = {name: 1.0 for name in bpm_observables}
     for name in bpm_weights:
-        for token, weight in settings["bpm_weight_overrides"].items():
+        for token, weight in bpm_weight_overrides.items():
             if token in name:
                 bpm_weights[name] = weight
     formatted_string = "\n".join([f"{name}:{val}" for name, val in bpm_weights.items()])
@@ -153,7 +188,7 @@ def run_automatic_alignment(
     local_region = get_local_region(
         env.get_variables(temp_vocs.variables.keys()),
         temp_vocs,
-        settings["local_region_fraction"],
+        local_region_fraction,
     )
 
     def eval(inputs):
@@ -187,7 +222,7 @@ def run_automatic_alignment(
     vocs = VOCS(
         variables=local_region,
         observables=bpm_observables,
-        constraints=settings["constraints"],
+        constraints=constraints,
     )
 
     # create custom objective
@@ -227,9 +262,9 @@ def run_automatic_alignment(
         vocs=vocs,
         custom_objective=MyObjective(vocs),
         gp_constructor=gp_constructor,
-        n_interpolate_points=settings["generator"]["n_interpolate_points"],
+        n_interpolate_points=generator_n_interpolate_points,
     )
-    generator.numerical_optimizer.max_time = settings["generator"]["max_time"]
+    generator.numerical_optimizer.max_time = generator_max_time
 
     evaluator = Evaluator(function=eval)
 
@@ -239,13 +274,17 @@ def run_automatic_alignment(
     # evaluate
     X.evaluate_data(env.get_variables(vocs.variables.keys()))
     if X.data.min()["norm"] < target_value:
-        logger.info("converged")
+        logger.info(
+            "Converged immediately with norm=%s in %.2f s.",
+            X.data.min()["norm"],
+            time.time() - run_start_time,
+        )
         return X
 
     random_sample_region = get_local_region(
         env.get_variables(vocs.variables.keys()),
         X.vocs,
-        fraction=settings["random_sample_fraction"],
+        fraction=random_sample_fraction,
     )
 
     if old_data is not None:
@@ -254,7 +293,7 @@ def run_automatic_alignment(
     else:
         logger.info("Generating and evaluating random points.")
         X.random_evaluate(
-            settings["initial_random_evaluations"],
+            initial_random_evaluations,
             custom_bounds=random_sample_region,
         )
 
@@ -306,5 +345,12 @@ def run_automatic_alignment(
             metric_name="norm",
             context="alignment finalization",
         )
+
+    logger.info(
+        "Automatic alignment complete: evaluations=%d best_norm=%s duration=%.2f s",
+        len(X.data),
+        X.data["norm"].min() if "norm" in X.data else "N/A",
+        time.time() - run_start_time,
+    )
 
     return X
