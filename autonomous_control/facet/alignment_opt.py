@@ -16,75 +16,15 @@ from autonomous_control.facet.optimization_utils import (
     safe_evaluate_best_point,
 )
 
+from autonomous_control.facet.utils import (
+    get_local_region,
+)
+
 from ml_tto.errors import TransmissionError
 
 # Setup Logging
 logger = logging.getLogger("auto_alignment")
 
-
-def get_local_region(center_point: dict, vocs: VOCS, fraction: float = 0.1) -> dict:
-    """Calculate bounds of a local region around a center point.
-
-    Side lengths equal a fixed fraction of the full input-space range for each
-    variable, clamped to the VOCS bounds.
-
-    Parameters
-    ----------
-    center_point : dict
-        Mapping of variable name to current value.  Keys must exactly match
-        ``vocs.variable_names``.
-    vocs : VOCS
-        Xopt VOCS object defining variable names and bounds.
-    fraction : float, optional
-        Half-width of the local region as a fraction of the full variable range,
-        by default 0.1.
-
-    Returns
-    -------
-    dict
-        Mapping of variable name to ``[lower, upper]`` bound lists.
-
-    Raises
-    ------
-    KeyError
-        If ``center_point`` keys do not match ``vocs.variable_names``.
-    """
-    logger.debug("Calculating local region bounds.")
-    if not center_point.keys() == set(vocs.variable_names):
-        logger.error("Center point keys must match VOCS variable names")
-        raise KeyError("Center point keys must match vocs variable names")
-
-    bounds = {}
-    widths = {
-        ele: vocs.variables[ele][1] - vocs.variables[ele][0]
-        for ele in vocs.variable_names
-    }
-
-    for name in vocs.variable_names:
-        bounds[name] = [
-            np.max(
-                (center_point[name] - widths[name] * fraction, vocs.variables[name][0])
-            ),
-            np.min(
-                (center_point[name] + widths[name] * fraction, vocs.variables[name][1])
-            ),
-        ]
-
-    logger.debug(f"Local region: {bounds}")
-    return bounds
-
-
-bpms = [221, 371, 425, 511, 525]
-alignment_pvs = {
-    "PR10571": {
-        "corrector_pvs": [
-            f"XCOR:DIAG0:{ele}:BCTRL" for ele in [221, 311, 381, 411, 491, 521]
-        ]
-        + [f"YCOR:DIAG0:{ele}:BCTRL" for ele in [222, 312, 382, 412, 492, 522]],
-        "bpms": [f"BPMS:DIAG0:{ele}:XSCDTH" for ele in bpms]
-        + [f"BPMS:DIAG0:{ele}:YSCDTH" for ele in bpms],
-    },
-}
 
 
 @restore_on_error(context="alignment_opt")
