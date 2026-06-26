@@ -86,6 +86,7 @@ def optimize_energy_spread(
     RuntimeError
         If the dipole current state is not suitable for energy measurements.
     """
+    run_start_time = time.time()
     if dump_location is None:
         dump_location = "."
 
@@ -109,6 +110,15 @@ def optimize_energy_spread(
         "max_settle_polls": max_settle_polls,
     }
     logger.info("Starting energy spread optimization.")
+    logger.info(
+        "Energy spread config: measurement_screen=%s phase_set_pv=%s phase_readback_pv=%s n_steps=%d initial_random_evaluations=%d dump_location=%s",
+        settings["measurement_screen"],
+        settings["phase_set_pv"],
+        settings["phase_readback_pv"],
+        settings["n_steps"],
+        settings["initial_random_evaluations"],
+        dump_location,
+    )
     dipole_correct_state = settings["dipole_correct_state"]
     dipole_current_state = env.get_variables([settings["dipole_current_pv"]])[
         settings["dipole_current_pv"]
@@ -236,6 +246,11 @@ def optimize_energy_spread(
         use_select_best=True,
         context="energy spread optimization",
     )
-    logger.info("Energy spread optimization finished.")
+    logger.info(
+        "Energy spread optimization finished: evaluations=%d objectives=%s duration=%.2f s",
+        len(X.data),
+        settings["objectives"],
+        time.time() - run_start_time,
+    )
 
     return X

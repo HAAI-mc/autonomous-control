@@ -468,6 +468,8 @@ def run_automatic_tcav_phasing(
         callback interfaces.
     dump_location : str or Path, optional
         Directory to save optimization dumps, by default None (no dumps).
+    tcav_on_amplitude : float, optional
+        Target TCAV amplitude used during phasing scans.
     n_measurement_shots : int, optional
         Number of shots averaged per measurement.
     amplitude_tolerance : float, optional
@@ -492,11 +494,21 @@ def run_automatic_tcav_phasing(
     Xopt or None
         Optimization object from the phasing run.
     """
+    run_start_time = time.time()
     if max_scan_range is None:
         max_scan_range = [-10, 10]
 
     tcav = env.tcav
     logger.info(f"Starting automatic TCAV phasing. Current TCAV phase: {tcav.phase}")
+    logger.info(
+        "TCAV phasing config: tcav_on_amplitude=%s n_initial_points=%d n_iterations=%d max_scan_range=%s min_transmission=%s dump_location=%s",
+        tcav_on_amplitude,
+        n_initial_points,
+        n_iterations,
+        max_scan_range,
+        min_transmission,
+        dump_location,
+    )
 
     def eval_callback(inputs):
         return env._evaluate_callback(inputs, None)
@@ -525,7 +537,9 @@ def run_automatic_tcav_phasing(
 
     X = phaser.run()
     logger.info(
-        "Automatic TCAV phasing finished. Optimized phase: %s", phaser.optimized_phase
+        "Automatic TCAV phasing finished. Optimized phase: %s duration=%.2f s",
+        phaser.optimized_phase,
+        time.time() - run_start_time,
     )
 
     return X

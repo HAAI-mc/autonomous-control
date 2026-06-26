@@ -294,6 +294,7 @@ def optimize_solenoid_alignment(
     Xopt
         Configured and executed Xopt instance containing optimization data.
     """
+    run_start_time = time.time()
 
     if dump_location is None:
         dump_location = "."
@@ -301,6 +302,12 @@ def optimize_solenoid_alignment(
     # TODO: check data folder exists
 
     logger.info("Starting BAX solenoid alignment optimization.")
+    logger.info(
+        "Solenoid alignment config: initial_random_evaluations=%d n_steps=%d dump_location=%s",
+        initial_random_evaluations,
+        n_steps,
+        dump_location,
+    )
     env.save_directory = os.path.join(dump_location, "data/")
     logger.debug(
         "Configured solenoid alignment optimization with save_directory=%s dump_location=%s",
@@ -432,4 +439,11 @@ def optimize_solenoid_alignment(
     )
 
     fig.savefig(os.path.join(dump_location, f"solenoid_alignment_opt_{ts}.png"))
+    logger.info(
+        "Solenoid alignment summary: evaluations=%d yaml=%s png=%s duration=%.2f s",
+        len(X.data),
+        X.dump_file,
+        os.path.join(dump_location, f"solenoid_alignment_opt_{ts}.png"),
+        time.time() - run_start_time,
+    )
     return X

@@ -62,6 +62,16 @@ def run_automatic_schottky_scan(
     Xopt
         Optimizer object containing collected scan data.
     """
+    run_start_time = time.time()
+    logger.info(
+        "Starting Schottky scan: variable=%s range=%s observable=%s max_measure=%d visualize=%s dump_location=%s",
+        variable_name,
+        design_range,
+        observable_name,
+        max_measure,
+        visualize,
+        dump_location,
+    )
 
     settings = {
         "model_dir": model_dir,
@@ -76,8 +86,14 @@ def run_automatic_schottky_scan(
     old_feedback_state = epics.caget("KLYS:LI10:31:SFB_PDIS")
     old_charge_feedback_state = epics.caget("SIOC:SYS1:ML03:AO502")
     old_fcup_state = epics.caget("FARC:IN10:241:PNEUMATIC")
+    logger.info(
+        "Captured initial states: klystron_feedback=%s charge_feedback=%s faraday_cup=%s",
+        old_feedback_state,
+        old_charge_feedback_state,
+        old_fcup_state,
+    )
 
-    logging.info("inserting Faraday cup, interrupting feedbacks")
+    logger.info("Inserting Faraday cup and interrupting feedbacks.")
     epics.caput("KLYS:LI10:31:SFB_PDIS", 0)
     epics.caput("SIOC:SYS1:ML03:AO502", 0)
     epics.caput("FARC:IN10:241:PNEUMATIC", 1)
@@ -87,7 +103,7 @@ def run_automatic_schottky_scan(
 
     @retry(stop=stop_after_attempt(5), wait=wait_fixed(5.0))
     def evaluate(inputs):
-        logging.debug(inputs)
+        logger.debug(inputs)
         
         true_val = inputs['control_phase'] + (init_pdes_value - phase_w0ch6)
         
@@ -126,6 +142,7 @@ def run_automatic_schottky_scan(
             evaluator=evaluator, 
             dump_file=os.path.join(dump_location, f"schottky_scan_data_{int(time.time())}.yaml") if dump_location else None
         )
+        logger.info("Schottky scan dump file: %s", X.dump_file)
     
         logger.info("Starting automatic Schottky scan with Amortized BOED generator.")
         logger.info(f'Running {settings["max_measure"]} steps ({grid_steps} grid + {settings["max_measure"] - grid_steps} BOED)...')
@@ -202,16 +219,19 @@ def run_automatic_schottky_scan(
     
         logger.info(f"best T0 estimate from BOED scan: {best_t0:.2f}° gunphase")
         #environment.set_variables({settings["variable_name"]: best_t0})
-    except Exception as e:
+    except Exception:
         logger.error("Exception:")
         logger.error(traceback.format_exc())
         raise
     finally:
-        logger.info("removing the faraday cup and restarting feedbacks")
+        logger.info("Removing the faraday cup and restarting feedbacks.")
         epics.caput("KLYS:LI10:31:SFB_PDIS", 1)
         epics.caput("FARC:IN10:241:PNEUMATIC", 0)
         epics.caput("SIOC:SYS1:ML03:AO502", 1)
 
 
-    logger.info("Automatic Schottky scan complete.")
+    logger.info(
+        "Automatic Schottky scan complete in %.2f s.",
+        time.time() - run_start_time,
+    )
     return X

@@ -66,6 +66,7 @@ def run_automatic_workflow(
 
     ts = time.time()
     log_file = f"automatic_workflow_{int(ts)}.log"
+    workflow_start_time = time.time()
     force_reconfigure_logging = "PYTEST_CURRENT_TEST" in os.environ
 
     logging.basicConfig(
@@ -79,30 +80,99 @@ def run_automatic_workflow(
         force=force_reconfigure_logging,
     )
     logging.getLogger('matplotlib').setLevel(logging.INFO)
+    logging.info("Starting automatic workflow...")
+    logging.info(
+        "Workflow context: steps=%d dump_location=%s reset_env_after=%s logging_level=%s log_file=%s",
+        len(workflow),
+        dump_location,
+        reset_env_after,
+        logging.getLevelName(logging_level),
+        log_file,
+    )
 
     # create and configure the FACET-II badger environment
     if env is None:
         logging.info("Creating new FACET-II badger environment.")
         env = create_env()
+    else:
+        logging.info("Using provided FACET-II badger environment.")
 
     # reset the environment to a safe state before starting the workflow
-    reset_env(env)
+    pre_reset_start = time.time()
+    logging.info("Resetting environment to safe state before workflow.")
+    try:
+        reset_env(env)
+    except Exception:
+        logging.exception("Pre-workflow environment reset failed.")
+        raise
+    logging.info(
+        "Pre-workflow environment reset completed in %.2f s.",
+        time.time() - pre_reset_start,
+    )
 
-    for step in workflow:
+    completed_steps = 0
+    total_steps = len(workflow)
+
+    for i, step in enumerate(workflow, start=1):
         step_kwargs = dict(step)
         step_type = step_kwargs.pop("type", None)
-        logging.info(f"Starting workflow step: {step_type}")
+        logging.info(f"Running workflow step: {step_type}")
+        logging.info(
+            "Step %d/%d parameters: %s",
+            i,
+            total_steps,
+            step_kwargs if step_kwargs else "{}",
+        )
 
         step_handler = STEP_HANDLERS.get(step_type)
         if step_handler is None:
             logging.error(f"Unknown workflow type: {step_type}")
             raise ValueError(f"Unknown workflow type: {step_type}")
 
-        step_handler(env, dump_location, **step_kwargs)
+        step_start = time.time()
+        try:
+            step_handler(env, dump_location, **step_kwargs)
+        except Exception:
+            logging.exception(
+                "Workflow step failed: %s (step %d/%d) after %.2f s",
+                step_type,
+                i,
+                total_steps,
+                time.time() - step_start,
+            )
+            raise
+
+        completed_steps += 1
+        logging.info(
+            "Completed workflow step: %s (step %d/%d) in %.2f s",
+            step_type,
+            i,
+            total_steps,
+            time.time() - step_start,
+        )
 
     if reset_env_after:
         logging.info("Resetting environment to safe state.")
-        reset_env(env)
+        post_reset_start = time.time()
+        try:
+            reset_env(env)
+        except Exception:
+            logging.exception("Post-workflow environment reset failed.")
+            raise
+        logging.info(
+            "Post-workflow environment reset completed in %.2f s.",
+            time.time() - post_reset_start,
+        )
+    else:
+        logging.info("Skipping post-workflow environment reset (reset_env_after=False).")
+
+    logging.info("Automatic workflow completed.")
+    logging.info(
+        "Workflow summary: completed_steps=%d total_steps=%d duration=%.2f s",
+        completed_steps,
+        total_steps,
+        time.time() - workflow_start_time,
+    )
 
     # return logging file name for reference
     return log_file

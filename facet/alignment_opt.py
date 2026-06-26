@@ -8,6 +8,7 @@ import numpy as np
 import torch
 from gpytorch.kernels import ScaleKernel, PolynomialKernel
 import traceback
+import time
 
 
 from .optimization_utils import restore_on_error, safe_evaluate_best_point
@@ -141,6 +142,7 @@ def run_automatic_alignment(
     Xopt
         Optimizer instance containing all collected evaluations.
     """
+    run_start_time = time.time()
     if screens is None:
         screens = alignment_pvs
     if constraints is None:
@@ -154,10 +156,24 @@ def run_automatic_alignment(
         logger.debug("dump_location provided but ignored in alignment_opt: %s", dump_location)
 
     logger.info(f"Starting automatic alignment for screen: {to_screen_name}")
+    logger.info(
+        "Alignment config: n_steps=%d target_value=%s local_region_fraction=%s random_sample_fraction=%s initial_random_evaluations=%d",
+        n_steps,
+        target_value,
+        local_region_fraction,
+        random_sample_fraction,
+        initial_random_evaluations,
+    )
     # if just transporting beam to OTRDG02, use all BPMs except 470 and 520
     screen_config = screens[to_screen_name]
     pvs = screen_config["corrector_pvs"]
     bpm_observables = screen_config["bpms"]
+    logger.info(
+        "Using %d correctors and %d BPM observables for %s.",
+        len(pvs),
+        len(bpm_observables),
+        to_screen_name,
+    )
 
     # set biasing for certain bpms
     bpm_weights = {name: 1.0 for name in bpm_observables}
@@ -258,7 +274,11 @@ def run_automatic_alignment(
     # evaluate
     X.evaluate_data(env.get_variables(vocs.variables.keys()))
     if X.data.min()["norm"] < target_value:
-        logger.info("converged")
+        logger.info(
+            "Converged immediately with norm=%s in %.2f s.",
+            X.data.min()["norm"],
+            time.time() - run_start_time,
+        )
         return X
 
     random_sample_region = get_local_region(
@@ -325,5 +345,12 @@ def run_automatic_alignment(
             metric_name="norm",
             context="alignment finalization",
         )
+
+    logger.info(
+        "Automatic alignment complete: evaluations=%d best_norm=%s duration=%.2f s",
+        len(X.data),
+        X.data["norm"].min() if "norm" in X.data else "N/A",
+        time.time() - run_start_time,
+    )
 
     return X

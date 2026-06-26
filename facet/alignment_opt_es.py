@@ -90,15 +90,29 @@ def run_automatic_alignment(
     Xopt
         Optimizer instance containing all collected evaluations.
     """
+    run_start_time = time.time()
     if dump_location is None:
         dump_location = "."
 
     # env.set_screen(to_screen_name)
 
     logger.info(f"Starting automatic alignment for screen: {to_screen_name}")
+    logger.info(
+        "Alignment ES config: n_steps=%d target_value=%s region_fraction=%s dump_location=%s",
+        n_steps,
+        target_value,
+        region_fraction,
+        dump_location,
+    )
     # if just transporting beam to OTRDG02, use all BPMs except 470 and 520
     pvs = alignment_pvs[to_screen_name]["corrector_pvs"]
     bpm_observables = alignment_pvs[to_screen_name]["bpms"]
+    logger.info(
+        "Using %d correctors and %d BPM observables for %s.",
+        len(pvs),
+        len(bpm_observables),
+        to_screen_name,
+    )
 
     temp_vocs = VOCS(variables=env.get_bounds(pvs), observables=[])
     local_region = get_local_region(
@@ -161,7 +175,11 @@ def run_automatic_alignment(
     X.evaluate_data(env.get_variables(vocs.variables.keys()))
 
     if X.data.min()["norm"] < target_value:
-        logger.info("converged")
+        logger.info(
+            "Converged immediately with norm=%s in %.2f s.",
+            X.data.min()["norm"],
+            time.time() - run_start_time,
+        )
         return X
 
     try:
@@ -181,5 +199,12 @@ def run_automatic_alignment(
             metric_name="norm",
             context="extremum-seeking alignment finalization",
         )
+
+    logger.info(
+        "Automatic alignment (ES) complete: evaluations=%d best_norm=%s duration=%.2f s",
+        len(X.data),
+        X.data["norm"].min() if "norm" in X.data else "N/A",
+        time.time() - run_start_time,
+    )
 
     return X
