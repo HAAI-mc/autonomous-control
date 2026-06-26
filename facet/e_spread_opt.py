@@ -13,13 +13,31 @@ from xopt import Xopt, Evaluator, VOCS
 from xopt.generators.bayesian import ExpectedImprovementGenerator
 
 
-from optimization_utils import merge_config, restore_on_error, safe_evaluate_best_point
+from .optimization_utils import restore_on_error, safe_evaluate_best_point
 
 logger = logging.getLogger("energy_spread_opt")
 
 
 @restore_on_error(context="e_spread_opt")
-def optimize_energy_spread(env, dump_location=None, **kwargs):
+def optimize_energy_spread(
+    env,
+    dump_location=None,
+    *,
+    dipole_correct_state=0.125,
+    dipole_current_pv="BEND:IN10:661:BACT",
+    phase_set_pv="KLYS:LI10:41:SFB_PDES",
+    phase_readback_pv="ACCL:LI10:41:PHASE_W0CH0",
+    phase_span=5.0,
+    variables=None,
+    objectives=None,
+    measurement_screen="PROF10711",
+    initial_random_evaluations=3,
+    n_steps=5,
+    settle_wait=0.1,
+    poll_interval=0.5,
+    phase_tolerance=0.05,
+    max_settle_polls=40,
+):
     """Optimize beam energy spread using klystron phase control.
 
     Parameters
@@ -29,10 +47,34 @@ def optimize_energy_spread(env, dump_location=None, **kwargs):
         measurement interfaces.
     dump_location : str or pathlib.Path
         Requested output location for optimization artifacts.
-    **kwargs
-        Configuration overrides, typically loaded from a config file. Supported
-        keys include PV names, phase bounds, objectives, and optimization loop
-        counts.
+    dipole_correct_state : float, optional
+        Required dipole current state for energy measurements.
+    dipole_current_pv : str, optional
+        Dipole current readback PV.
+    phase_set_pv : str, optional
+        Klystron phase setpoint PV.
+    phase_readback_pv : str, optional
+        Klystron phase readback PV.
+    phase_span : float, optional
+        Symmetric optimization span around the current phase.
+    variables : dict, optional
+        Explicit variable bounds override for VOCS.
+    objectives : dict, optional
+        VOCS objective mapping.
+    measurement_screen : str, optional
+        Screen used for beam profile measurements.
+    initial_random_evaluations : int, optional
+        Number of initial random evaluations.
+    n_steps : int, optional
+        Number of Bayesian optimization steps.
+    settle_wait : float, optional
+        Initial wait before settling loop.
+    poll_interval : float, optional
+        Poll interval for phase settling.
+    phase_tolerance : float, optional
+        Absolute tolerance for phase settling.
+    max_settle_polls : int, optional
+        Maximum number of settling polls before timeout.
 
     Returns
     -------
@@ -47,25 +89,25 @@ def optimize_energy_spread(env, dump_location=None, **kwargs):
     if dump_location is None:
         dump_location = "."
 
-    settings = merge_config(
-        {
-            "dipole_correct_state": 0.125,
-            "dipole_current_pv": "BEND:IN10:661:BACT",
-            "phase_set_pv": "KLYS:LI10:41:SFB_PDES",
-            "phase_readback_pv": "ACCL:LI10:41:PHASE_W0CH0",
-            "phase_span": 5.0,
-            "variables": None,
-            "objectives": {"rms_x": "MINIMIZE"},
-            "measurement_screen": "PROF10711",
-            "initial_random_evaluations": 3,
-            "n_steps": 5,
-            "settle_wait": 0.1,
-            "poll_interval": 0.5,
-            "phase_tolerance": 0.05,
-            "max_settle_polls": 40,
-        },
-        kwargs,
-    )
+    if objectives is None:
+        objectives = {"rms_x": "MINIMIZE"}
+
+    settings = {
+        "dipole_correct_state": dipole_correct_state,
+        "dipole_current_pv": dipole_current_pv,
+        "phase_set_pv": phase_set_pv,
+        "phase_readback_pv": phase_readback_pv,
+        "phase_span": phase_span,
+        "variables": variables,
+        "objectives": objectives,
+        "measurement_screen": measurement_screen,
+        "initial_random_evaluations": initial_random_evaluations,
+        "n_steps": n_steps,
+        "settle_wait": settle_wait,
+        "poll_interval": poll_interval,
+        "phase_tolerance": phase_tolerance,
+        "max_settle_polls": max_settle_polls,
+    }
     logger.info("Starting energy spread optimization.")
     dipole_correct_state = settings["dipole_correct_state"]
     dipole_current_state = env.get_variables([settings["dipole_current_pv"]])[

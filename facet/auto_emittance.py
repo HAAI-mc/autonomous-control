@@ -20,7 +20,9 @@ def run_automatic_emittance(
     screen_settle_time=2.0,
     screens=None,
 ):
-    """Run an automatic emittance measurement for the specified screen.
+    """
+    Run an automatic emittance measurement for the specified screen using 
+    the quadrupole scan method defined in the environment's emittance configuration.
 
     Inserts the requested screen, configures the emittance measurement object
     on ``env``, executes the measurement, and returns the results.

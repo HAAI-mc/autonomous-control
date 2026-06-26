@@ -6,7 +6,10 @@ import sys
 import os
 
 def create_env():
-    """Create and configure the FACET-II badger environment for use in autonomous workflows."""
+    """
+    Create and configure the FACET-II badger environment for use in autonomous workflows.
+    
+    """
 
     # add the path that contains the facet environment
     sys.path.insert(0, os.path.join(os.environ["BADGER_RESOURCES"], "facet"))

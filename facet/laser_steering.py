@@ -40,9 +40,9 @@ from bax_algorithms.utils import get_bax_mean_prediction, tuning_input_tensor_to
 from bax_algorithms.visualize import visualize_virtual_measurement_result
 
 try:
-    from facet.optimization_utils import merge_config, safe_evaluate_best_point
+    from facet.optimization_utils import safe_evaluate_best_point
 except ImportError:
-    from optimization_utils import merge_config, safe_evaluate_best_point
+    from .optimization_utils import safe_evaluate_best_point
 
 from xopt.numerical_optimizer import LBFGSOptimizer
 
@@ -268,7 +268,13 @@ class BaxGenerator(BayesianGenerator):
         return eig
 
 
-def optimize_solenoid_alignment(env, dump_location=None, **kwargs):
+def optimize_solenoid_alignment(
+    env,
+    dump_location=None,
+    *,
+    initial_random_evaluations=2,
+    n_steps=30,
+):
     """Run BAX optimization for solenoid alignment.
 
     Parameters
@@ -278,9 +284,10 @@ def optimize_solenoid_alignment(env, dump_location=None, **kwargs):
         interfaces used by this routine.
     dump_location : str or pathlib.Path
         Requested output location for optimization artifacts.
-    **kwargs
-        Configuration overrides. Supported keys include
-        ``initial_random_evaluations`` and ``n_steps``.
+    initial_random_evaluations : int, optional
+        Number of random warm-start evaluations.
+    n_steps : int, optional
+        Number of BAX optimization iterations.
 
     Returns
     -------
@@ -290,14 +297,6 @@ def optimize_solenoid_alignment(env, dump_location=None, **kwargs):
 
     if dump_location is None:
         dump_location = "."
-
-    settings = merge_config(
-        {
-            "initial_random_evaluations": 2,
-            "n_steps": 30,
-        },
-        kwargs,
-    )
 
     # TODO: check data folder exists
 
@@ -402,9 +401,9 @@ def optimize_solenoid_alignment(env, dump_location=None, **kwargs):
     # evaluate the current point and two random points
     logger.info("Running initial evaluations (current + 2 random points).")
     X.evaluate_data(env.get_variables(X.vocs.variable_names))
-    X.random_evaluate(settings["initial_random_evaluations"])
+    X.random_evaluate(initial_random_evaluations)
 
-    for i in range(settings["n_steps"]):
+    for i in range(n_steps):
         logger.debug("Running optimization step %d/5", i + 1)
         X.step()
 

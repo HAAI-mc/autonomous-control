@@ -1,7 +1,6 @@
 import logging
 from xopt import Xopt, Evaluator, VOCS
 from xopt.generators.sequential import ExtremumSeekingGenerator
-from botorch.exceptions.errors import OptimizationGradientError
 import numpy as np
 import traceback
 import epics
@@ -10,68 +9,11 @@ from ml_tto.errors import TransmissionError
 import os
 
 
-from optimization_utils import merge_config, restore_on_error, safe_evaluate_best_point
+from .optimization_utils import restore_on_error, safe_evaluate_best_point
+from .utils import get_local_region
 
 # Setup Logging
 logger = logging.getLogger("auto_alignment")
-
-
-def get_local_region(center_point: dict, vocs: VOCS, fraction: float = 0.1) -> dict:
-    """Calculate bounds of a local region around a center point.
-
-    Side lengths equal a fixed fraction of the full input-space range for each
-    variable, clamped to the VOCS bounds.
-
-    Parameters
-    ----------
-    center_point : dict
-        Mapping of variable name to current value.  Keys must exactly match
-        ``vocs.variable_names``.
-    vocs : VOCS
-        Xopt VOCS object defining variable names and bounds.
-    fraction : float, optional
-        Half-width of the local region as a fraction of the full variable range,
-        by default 0.1.
-
-    Returns
-    -------
-    dict
-        Mapping of variable name to ``[lower, upper]`` bound lists.
-
-    Raises
-    ------
-    KeyError
-        If ``center_point`` keys do not match ``vocs.variable_names``.
-    """
-    logger.debug("Calculating local region bounds.")
-    if not center_point.keys() == set(vocs.variable_names):
-        logger.error("Center point keys must match VOCS variable names")
-        raise KeyError("Center point keys must match vocs variable names")
-
-    bounds = {}
-    widths = {
-        ele: vocs.variables[ele].domain[1] - vocs.variables[ele].domain[0]
-        for ele in vocs.variable_names
-    }
-
-    for name in vocs.variable_names:
-        bounds[name] = [
-            np.max(
-                (
-                    center_point[name] - widths[name] * fraction,
-                    vocs.variables[name].domain[0],
-                )
-            ),
-            np.min(
-                (
-                    center_point[name] + widths[name] * fraction,
-                    vocs.variables[name].domain[1],
-                )
-            ),
-        ]
-
-    logger.debug(f"Local region: {bounds}")
-    return bounds
 
 
 bpms = [371, 425, 511, 525, 581, 631, 651]
@@ -119,7 +61,11 @@ alignment_pvs = {
 def run_automatic_alignment(
     env,
     dump_location=None,
-    **kwargs,
+    *,
+    to_screen_name="PROF571",
+    n_steps=100,
+    target_value=1.0,
+    region_fraction=0.15,
 ):
     """Run the extremum-seeking alignment optimization process.
 
@@ -130,35 +76,22 @@ def run_automatic_alignment(
         and ``get_observables``.
     dump_location : str or pathlib.Path, optional
         Directory for optimization dump files.
-    **kwargs
-        Configuration overrides. Supported keys include
-        ``to_screen_name``, ``n_steps``, ``old_data``, ``target_value``,
-        ``region_fraction``, and ``dump_location``.
+    to_screen_name : str, optional
+        Screen key from ``alignment_pvs`` used for the alignment optimization.
+    n_steps : int, optional
+        Number of optimization steps.
+    target_value : float, optional
+        Early-stop threshold for the ``norm`` objective.
+    region_fraction : float, optional
+        Fractional local-region width around the current machine state.
 
     Returns
     -------
     Xopt
         Optimizer instance containing all collected evaluations.
     """
-    settings = merge_config(
-        {
-            "to_screen_name": "PROF571",
-            "n_steps": 100,
-            "old_data": None,
-            "target_value": 1.0,
-            "region_fraction": 0.15,
-            "dump_location": ".",
-        },
-        kwargs,
-    )
-
-    to_screen_name = settings["to_screen_name"]
-    n_steps = settings["n_steps"]
-    old_data = settings["old_data"]
-    target_value = settings["target_value"]
-    region_fraction = settings["region_fraction"]
     if dump_location is None:
-        dump_location = settings["dump_location"]
+        dump_location = "."
 
     # env.set_screen(to_screen_name)
 
@@ -230,10 +163,6 @@ def run_automatic_alignment(
     if X.data.min()["norm"] < target_value:
         logger.info("converged")
         return X
-
-    random_sample_region = get_local_region(
-        env.get_variables(vocs.variables.keys()), X.vocs, fraction=0.1
-    )
 
     try:
         for n in range(n_steps):

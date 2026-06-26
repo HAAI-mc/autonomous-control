@@ -10,8 +10,8 @@ from tenacity import retry, stop_after_attempt, wait_fixed
 
 from xopt import Evaluator, VOCS, Xopt
 
-from optimization_utils import merge_config, restore_on_error
-from two_bunch_boed_utils import (
+from .optimization_utils import restore_on_error
+from .two_bunch_boed_utils import (
     AmortizedBOEDBunchGenerator,
     get_results,
 )
@@ -19,21 +19,60 @@ from two_bunch_boed_utils import (
 logger = logging.getLogger("auto_schottky_scan")
 
 @restore_on_error(context="auto_schottky_scan")
-def run_automatic_schottky_scan(env, dump_location=None, **kwargs):
+def run_automatic_schottky_scan(
+    env,
+    dump_location=None,
+    *,
+    model_dir='/home/fphysics/rroussel/e331/facet/aboed',
+    design_range=(-25.0, 45.0),
+    observable_name='BPMS:IN10:221:TMIT',
+    variable_name='control_phase',
+    max_measure=100,
+    visualize=True,
+    n_posterior_samples=1000,
+    n_predictive_curves=100,
+):
+    """Run the automatic Schottky scan with BOED-guided phase selection.
 
-    settings = merge_config(
-        {
-            "model_dir": '/home/fphysics/rroussel/e331/facet/aboed',  # directory with traced .pt models
-            "design_range": [-25.0, 45.0],   # [t_min, t_max] in physical gunphase degrees
-            "observable_name": 'BPMS:IN10:221:TMIT',
-            "variable_name": 'control_phase',
-            "max_measure": 100,              # total measurements (grid + BOED)
-            "visualize": True,                # whether to show diagnostic plots during BOED phase
-            "n_posterior_samples": 1000,       # number of posterior samples to draw for T0 histogram and predictive curves
-            "n_predictive_curves": 100,        # number of posterior predictive curves to
-        },
-        kwargs,
-    )
+    Parameters
+    ----------
+    env : Any
+        Control environment that provides variable setting and observable reads.
+    dump_location : str or pathlib.Path, optional
+        Directory where optimization dump artifacts are written.
+    model_dir : str, optional
+        Directory containing traced BOED models.
+    design_range : tuple[float, float], optional
+        Gunphase search bounds in degrees.
+    observable_name : str, optional
+        Observable PV to optimize.
+    variable_name : str, optional
+        Optimization variable name for Xopt.
+    max_measure : int, optional
+        Total number of measurements (grid + BOED).
+    visualize : bool, optional
+        If True, render BOED diagnostic plots during execution.
+    n_posterior_samples : int, optional
+        Posterior sample count used in downstream result summaries.
+    n_predictive_curves : int, optional
+        Number of posterior predictive curves used for diagnostics.
+
+    Returns
+    -------
+    Xopt
+        Optimizer object containing collected scan data.
+    """
+
+    settings = {
+        "model_dir": model_dir,
+        "design_range": list(design_range),
+        "observable_name": observable_name,
+        "variable_name": variable_name,
+        "max_measure": max_measure,
+        "visualize": visualize,
+        "n_posterior_samples": n_posterior_samples,
+        "n_predictive_curves": n_predictive_curves,
+    }
     old_feedback_state = epics.caget("KLYS:LI10:31:SFB_PDIS")
     old_charge_feedback_state = epics.caget("SIOC:SYS1:ML03:AO502")
     old_fcup_state = epics.caget("FARC:IN10:241:PNEUMATIC")
