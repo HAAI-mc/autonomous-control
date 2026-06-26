@@ -44,12 +44,12 @@ class TestAutomaticEmittance:
         assert env.screens["PROF10571"].image.sum() > 0, (
             "Screen PROF10571 should have a non-empty image"
         )
-        assert env.screens["PROF10711"].image.sum() > 0, (
-            "Screen PROF10711 should have a non-empty image"
+        assert env.screens["PR10711"].image.sum() > 0, (
+            "Screen PR10711 should have a non-empty image"
         )
 
         env.create_beamprofile_measurement("PROF10571").measure()
-        env.create_beamprofile_measurement("PROF10711").measure()
+        env.create_beamprofile_measurement("PR10711").measure()
 
     def test_run_automatic_emittance_on_va(self, env):
         result, fname, X = run_automatic_emittance(env, "PROF10571")

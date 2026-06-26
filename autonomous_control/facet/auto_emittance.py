@@ -21,7 +21,7 @@ def run_automatic_emittance(
     env,
     dump_location=None,
     *,
-    screen_name="PROF10571",
+    screen_name="PR10571",
     config_directory=None,
     screen_settle_time=2.0,
     screens=None,
@@ -43,7 +43,7 @@ def run_automatic_emittance(
         When omitted, the environment's existing save directory is used.
     screen_name : str, optional
         Name of the screen device to use. Supported values are
-        ``"PROF10571"`` and ``"PROF10711"``.
+        ``"PROF10571"`` and ``"PR10711"``.
     config_directory : str or pathlib.Path, optional
         Directory containing per-screen emittance configuration YAML files.
         Defaults to the FACET badger resources emittance config directory.
@@ -68,13 +68,13 @@ def run_automatic_emittance(
         config_directory = f"{os.environ['BADGER_RESOURCES']}/facet/plugins/environments/inj_emit/emittance_measurement_configs/"
 
     default_screens = {
-        "PROF10571": {
-            "targets": {"PROF10571": 1},
-            "config_file": "PROF10571.yaml",
+        "PR10571": {
+            "targets": {"PR10571": 1},
+            "config_file": "PR10571.yaml",
         },
-        "PROF10711": {
-            "targets": {"PROF10571": 0, "PROF10711": 1},
-            "config_file": "PROF10711.yaml",
+        "PR10711": {
+            "targets": {"PR10571": 0, "PR10711": 1},
+            "config_file": "PR10711.yaml",
         },
     }
     screen_settings = merge_config(default_screens, screens)

@@ -76,7 +76,7 @@ def get_local_region(center_point: dict, vocs: VOCS, fraction: float = 0.1) -> d
 
 bpms = [221, 371, 425, 511, 525]
 alignment_pvs = {
-    "PROF571": {
+    "PR10571": {
         "corrector_pvs": [
             f"XCOR:DIAG0:{ele}:BCTRL" for ele in [221, 311, 381, 411, 491, 521]
         ]
@@ -90,7 +90,7 @@ alignment_pvs = {
 @restore_on_error(context="alignment_opt")
 def run_automatic_alignment(
     env,
-    to_screen_name="PROF571",
+    to_screen_name="PR10571",
     n_steps=20,
     old_data=None,
     target_value=1.0,
@@ -104,7 +104,7 @@ def run_automatic_alignment(
         Control environment providing ``set_screen``, ``get_bounds``,
         ``get_variables``, ``set_variables``, and ``get_observables``.
     to_screen_name : str, optional
-        Screen name to align to, by default ``"PROF571"``.
+        Screen name to align to, by default ``"PR10571"``.
     n_steps : int, optional
         Maximum number of Bayesian optimization steps, by default 20.
     old_data : pandas.DataFrame or None, optional

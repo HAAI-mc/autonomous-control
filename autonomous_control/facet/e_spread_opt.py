@@ -57,7 +57,7 @@ def optimize_energy_spread(env, dump_location, config=None):
             "phase_span": 5.0,
             "variables": None,
             "objectives": {"rms_x": "MINIMIZE"},
-            "measurement_screen": "PROF10711",
+            "measurement_screen": "PR10711",
             "initial_random_evaluations": 3,
             "n_steps": 5,
             "settle_wait": 0.1,
