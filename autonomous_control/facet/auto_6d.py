@@ -1,11 +1,11 @@
 import logging
 
-from auto_emittance import run_automatic_emittance
+from autonomous_control.facet.auto_emittance import run_automatic_emittance
 
 try:
-    from facet.optimization_utils import restore_on_error
+    from autonomous_control.facet.optimization_utils import restore_on_error
 except ImportError:
-    from optimization_utils import restore_on_error
+    from autonomous_control.facet.optimization_utils import restore_on_error
 from lcls_tools.common.data.saver import H5Saver
 import time
 import pandas as pd

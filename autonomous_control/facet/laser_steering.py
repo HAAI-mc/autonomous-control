@@ -39,10 +39,7 @@ from bax_algorithms.pathwise.optimize import DifferentialEvolution
 from bax_algorithms.utils import get_bax_mean_prediction, tuning_input_tensor_to_dict
 from bax_algorithms.visualize import visualize_virtual_measurement_result
 
-try:
-    from facet.optimization_utils import safe_evaluate_best_point
-except ImportError:
-    from .optimization_utils import safe_evaluate_best_point
+from autonomous_control.facet.optimization_utils import safe_evaluate_best_point
 
 from xopt.numerical_optimizer import LBFGSOptimizer
 
@@ -405,16 +402,13 @@ def optimize_solenoid_alignment(
     )
     logger.debug("Created Xopt object with dump file: %s", X.dump_file)
 
-    # evaluate the current point and configurable random points
-    logger.info(
-        "Running initial evaluations (current + %d random points).",
-        initial_random_evaluations,
-    )
+    # evaluate the current point and two random points
+    logger.info("Running initial evaluations (current + 2 random points).")
     X.evaluate_data(env.get_variables(X.vocs.variable_names))
     X.random_evaluate(initial_random_evaluations)
 
     for i in range(n_steps):
-        logger.debug("Running optimization step %d/%d", i + 1, n_steps)
+        logger.debug("Running optimization step %d/5", i + 1)
         X.step()
 
     mean_optimizer = DifferentialEvolution(

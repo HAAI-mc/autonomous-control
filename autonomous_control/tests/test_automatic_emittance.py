@@ -13,7 +13,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 from plugins.environments.inj_emit import Environment
 from plugins.interfaces.epics import Interface
 
-from facet.auto_emittance import run_automatic_emittance
+from autonomous_control.facet.auto_emittance import run_automatic_emittance
 
 import logging
 logging.basicConfig(level=logging.DEBUG)
@@ -53,9 +53,5 @@ class TestAutomaticEmittance:
         env.create_beamprofile_measurement("PROF10711").measure()
 
     def test_run_automatic_emittance_on_va(self, env):
-        result, fname, X = run_automatic_emittance(
-            env,
-            dump_location=".",
-            screen_name="PROF10571",
-        )
+        result, fname, X = run_automatic_emittance(env, "PROF10571")
         print(X)

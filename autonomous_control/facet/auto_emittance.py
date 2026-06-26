@@ -3,9 +3,9 @@ import os
 import time
 
 try:
-    from facet.optimization_utils import merge_config, restore_on_error
+    from autonomous_control.facet.optimization_utils import merge_config, restore_on_error
 except ImportError:
-    from optimization_utils import merge_config, restore_on_error
+    from autonomous_control.facet.optimization_utils import merge_config, restore_on_error
 
 logger = logging.getLogger("auto_emittance")
 
