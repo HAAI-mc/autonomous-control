@@ -22,6 +22,7 @@ from autonomous_control.facet.tcav_phasing import (
 )
 
 import logging
+
 logging.basicConfig(level=logging.DEBUG)
 
 
@@ -119,8 +120,6 @@ class TestAutomaticTcavPhasing:
             f"Nominal centroid in STDBY should be near 0.0, got {nominal_centroid}"
         )
 
-
-
     def test_run_tcav_phasing(self, env):
         env.upstream_bpm_name = "BPM10371"
         env.downstream_bpm_name = "BPM10651"
@@ -140,7 +139,7 @@ class TestAutomaticTcavPhasing:
         tcav = _get_tcav_or_fail(env)
         set_tcav_mode_config_and_wait(tcav, "ACCEL_STDBY")
         set_tcav_amplitude_and_wait(tcav, 0.3)
-        set_tcav_phase_and_wait(tcav, 8.0) 
+        set_tcav_phase_and_wait(tcav, 8.0)
 
         time.sleep(5.0)  # wait for the VA to settle after changing the TCAV settings
 
@@ -156,4 +155,3 @@ class TestAutomaticTcavPhasing:
         assert np.isclose(env.tcav.phase, 0.0, atol=0.5), (
             f"Final TCAV phase should be close to 0, but got {env.tcav.phase}"
         )
-

@@ -1,8 +1,6 @@
 import os
 import sys
-import time
 import pytest
-import numpy as np
 
 # add the path that contains the facet environment
 sys.path.insert(0, os.path.join(os.environ["BADGER_RESOURCES"], "facet"))
@@ -16,6 +14,7 @@ from plugins.interfaces.epics import Interface
 from autonomous_control.facet.auto_emittance import run_automatic_emittance
 
 import logging
+
 logging.basicConfig(level=logging.DEBUG)
 
 

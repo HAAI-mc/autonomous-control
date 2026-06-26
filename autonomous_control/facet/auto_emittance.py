@@ -3,9 +3,15 @@ import os
 import time
 
 try:
-    from autonomous_control.facet.optimization_utils import merge_config, restore_on_error
+    from autonomous_control.facet.optimization_utils import (
+        merge_config,
+        restore_on_error,
+    )
 except ImportError:
-    from autonomous_control.facet.optimization_utils import merge_config, restore_on_error
+    from autonomous_control.facet.optimization_utils import (
+        merge_config,
+        restore_on_error,
+    )
 
 logger = logging.getLogger("auto_emittance")
 
@@ -21,7 +27,7 @@ def run_automatic_emittance(
     screens=None,
 ):
     """
-    Run an automatic emittance measurement for the specified screen using 
+    Run an automatic emittance measurement for the specified screen using
     the quadrupole scan method defined in the environment's emittance configuration.
 
     Inserts the requested screen, configures the emittance measurement object

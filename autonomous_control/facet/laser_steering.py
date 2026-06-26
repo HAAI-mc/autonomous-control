@@ -357,7 +357,10 @@ def optimize_solenoid_alignment(
         )
         for var_name in variable_names[:2]
     }
-    variables["SOLN:IN10:121:BCTRL"] = [0.97 * init_settings["SOLN:IN10:121:BCTRL"], 1.03 * init_settings["SOLN:IN10:121:BCTRL"]]
+    variables["SOLN:IN10:121:BCTRL"] = [
+        0.97 * init_settings["SOLN:IN10:121:BCTRL"],
+        1.03 * init_settings["SOLN:IN10:121:BCTRL"],
+    ]
     # construct vocs
     vocs = VOCS(
         variables=variables,

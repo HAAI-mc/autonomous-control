@@ -5,6 +5,7 @@ from xopt import VOCS
 
 logger = logging.getLogger(__name__)
 
+
 def get_local_region(center_point: dict, vocs: VOCS, fraction: float = 0.1) -> dict:
     """Calculate bounds of a local region around a center point.
 

@@ -26,18 +26,22 @@ STEP_HANDLERS = {
     "optimize_laser_steering": optimize_solenoid_alignment,
 }
 
+
 def run_automatic_workflow(
-    workflow: list[dict], 
+    workflow: list[dict],
     env: Any = None,
-    dump_location: str = None, 
-    reset_env_after: bool = True, 
-    logging_level: int = logging.INFO
+    dump_location: str = None,
+    reset_env_after: bool = True,
+    logging_level: int = logging.INFO,
 ):
     """
     Run a sequence of automatic workflows in the FACET-II badger environment.
-    
-    Iterates through the provided list of workflow steps, executing each step in order. 
-    Each step is a dictionary that specifies the type of workflow to run and any necessary parameters.
+
+    If no environment is provided, a new FACET-II badger environment will be created. 
+    The workflow is defined as a list of dictionaries, where each dictionary specifies 
+    the type of workflow to run and any necessary parameters. We iterate through the workflow steps, 
+    executing each one in order. After all steps are completed, the 
+    environment can be reset to a safe state if requested.
 
     Example
     -------
@@ -49,12 +53,12 @@ def run_automatic_workflow(
     >>> ]
     >>> run_automatic_workflow(workflow, dump_location="results", reset_env_after=True, logging_level=logging.INFO)
     ```
-    
+
     Parameters
     ----------
     workflow : list of dict
-        A list of dictionaries, where each dictionary represents a workflow step. 
-        Each dictionary must contain a 'type' key that specifies the type of workflow to run, 
+        A list of dictionaries, where each dictionary represents a workflow step.
+        Each dictionary must contain a 'type' key that specifies the type of workflow to run,
         and may contain additional keys for parameters required by that workflow.
     env : Any, optional
         An existing FACET-II badger environment. If not provided, a new environment will be created.
@@ -78,14 +82,14 @@ def run_automatic_workflow(
     logging.basicConfig(
         level=logging_level,
         handlers=[
-            logging.FileHandler(log_file), # Writes to file
-            logging.StreamHandler(sys.stdout)    # Writes to console
+            logging.FileHandler(log_file),  # Writes to file
+            logging.StreamHandler(sys.stdout),  # Writes to console
         ],
-        encoding='utf-8',
-        format='%(asctime)s - %(levelname)s - %(message)s',
+        encoding="utf-8",
+        format="%(asctime)s - %(levelname)s - %(message)s",
         force=force_reconfigure_logging,
     )
-    logging.getLogger('matplotlib').setLevel(logging.INFO)
+    logging.getLogger("matplotlib").setLevel(logging.INFO)
     logging.info("Starting automatic workflow...")
     logging.info(
         "Workflow context: steps=%d dump_location=%s reset_env_after=%s logging_level=%s log_file=%s",
@@ -174,7 +178,9 @@ def run_automatic_workflow(
             time.time() - post_reset_start,
         )
     else:
-        logging.info("Skipping post-workflow environment reset (reset_env_after=False).")
+        logging.info(
+            "Skipping post-workflow environment reset (reset_env_after=False)."
+        )
 
     logging.info("Automatic workflow completed.")
     logging.info(
@@ -197,11 +203,11 @@ def run_automatic_workflow_from_file(
 ):
     """
     Run a sequence of automatic workflows in the FACET-II badger environment from a YAML file.
-    
+
     Parameters
     ----------
     workflow_file : str
-        Path to a YAML file that defines the workflow steps. The file should contain a list of dictionaries, 
+        Path to a YAML file that defines the workflow steps. The file should contain a list of dictionaries,
         where each dictionary represents a workflow step with a 'type' key and any necessary parameters.
     env : Any, optional
         An existing FACET-II badger environment. If not provided, a new environment will be created.
@@ -226,7 +232,6 @@ def run_automatic_workflow_from_file(
         reset_env_after=reset_env_after,
         logging_level=logging_level,
     )
-
 
 
 if __name__ == "__main__":

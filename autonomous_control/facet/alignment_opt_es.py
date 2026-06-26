@@ -1,7 +1,6 @@
 import logging
 from xopt import Xopt, Evaluator, VOCS
 from xopt.generators.sequential import ExtremumSeekingGenerator
-from botorch.exceptions.errors import OptimizationGradientError
 import numpy as np
 import traceback
 import epics

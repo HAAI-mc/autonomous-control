@@ -39,7 +39,9 @@ TCAV_SETTLE_ATTEMPTS = 40
 TCAV_SETTLE_WAIT = 0.5
 TCAV_READ_RETRY_ATTEMPTS = 5
 TCAV_READ_RETRY_WAIT = 0.25
-TCAV_STATE_CHANGE_WAIT = 10.0  # seconds to wait after changing TCAV mode before reading values
+TCAV_STATE_CHANGE_WAIT = (
+    10.0  # seconds to wait after changing TCAV mode before reading values
+)
 
 
 def _is_timeout_exception(exc: BaseException) -> bool:
@@ -135,7 +137,7 @@ def _set_tcav_property_and_wait(
             f"TCAV {value_label} failed to settle within timeout: "
             f"target={target_value} readback={readback_value} polls={TCAV_SETTLE_ATTEMPTS}"
         )
-    
+
     logger.debug(
         "TCAV %s successfully set to %s (readback: %s)",
         set_attr,
@@ -205,7 +207,10 @@ def set_tcav_mode_config_and_wait(
     )
     # NOTE: there are no readbacks for the mode change, so we just wait a few seconds to let the TCAV update
     if current_mode != target_mode:
-        logger.debug("waiting %s seconds for TCAV to update after mode change", TCAV_STATE_CHANGE_WAIT)
+        logger.debug(
+            "waiting %s seconds for TCAV to update after mode change",
+            TCAV_STATE_CHANGE_WAIT,
+        )
         time.sleep(TCAV_STATE_CHANGE_WAIT)
 
 
@@ -288,7 +293,6 @@ class MLTCAVPhasing(BaseModel):
         logger.info("Starting TCAV phase optimization....")
         # make sure that the tcav is in accel mode
 
-
         # acquire the beam posisition without the TCAV on
         self.nominal_centroid = self.acquire_nominal_centroid()
         logger.debug(f"Acquired nominal centroid: {self.nominal_centroid}")
@@ -310,7 +314,6 @@ class MLTCAVPhasing(BaseModel):
             logger.error("TCAV amplitude is too low for phasing optimization")
             raise RuntimeError("TCAV amplitude is too low for phasing optimization")
 
-
         logger.debug(
             "Optimization settings: n_initial_points=%s n_iterations=%s scan_range=%s min_transmission=%s",
             self.n_initial_points,
@@ -323,9 +326,13 @@ class MLTCAVPhasing(BaseModel):
         try:
             # initial coarse scan
             initial_scan_values = np.linspace(
-                np.clip(start_phase - 5.0, self.max_scan_range[0], self.max_scan_range[1]),
-                np.clip(start_phase + 5.0, self.max_scan_range[0], self.max_scan_range[1]),
-                self.n_initial_points
+                np.clip(
+                    start_phase - 5.0, self.max_scan_range[0], self.max_scan_range[1]
+                ),
+                np.clip(
+                    start_phase + 5.0, self.max_scan_range[0], self.max_scan_range[1]
+                ),
+                self.n_initial_points,
             )
 
             # evaluate current point
@@ -355,17 +362,23 @@ class MLTCAVPhasing(BaseModel):
             logger.info(f"setting final phase to {final_phase}")
             logger.debug("Optimization data points collected: %s", len(self.X.data))
 
-            set_tcav_phase_and_wait(self.tcav, final_phase, phase_tolerance=self.phase_tolerance)
+            set_tcav_phase_and_wait(
+                self.tcav, final_phase, phase_tolerance=self.phase_tolerance
+            )
 
         except Exception:
             logger.exception(
                 "Error during TCAV optimization, resetting to original phase"
             )
-            set_tcav_phase_and_wait(self.tcav, start_phase, phase_tolerance=self.phase_tolerance)
+            set_tcav_phase_and_wait(
+                self.tcav, start_phase, phase_tolerance=self.phase_tolerance
+            )
             raise
 
         finally:
-            set_tcav_amplitude_and_wait(self.tcav, start_amp, amplitude_tolerance=self.amplitude_tolerance)
+            set_tcav_amplitude_and_wait(
+                self.tcav, start_amp, amplitude_tolerance=self.amplitude_tolerance
+            )
             logger.info("Restored original TCAV amplitude.")
             logger.info("TCAV phase optimization complete.")
 
@@ -445,7 +458,14 @@ class MLTCAVPhasing(BaseModel):
 
 
 @restore_on_error(context="tcav_phasing")
-def run_automatic_tcav_phasing(env, dump_location=None, max_scan_range=[35.0, 55.0], n_initial_points=10, n_iterations=10):
+def run_automatic_tcav_phasing(
+    env,
+    dump_location=None,
+    max_scan_range=[35.0, 55.0],
+    n_initial_points=10,
+    n_iterations=10,
+    tcav_on_amplitude=0.3,
+):
     """Create and run the automatic TCAV phasing controller.
 
     Parameters
@@ -483,6 +503,7 @@ def run_automatic_tcav_phasing(env, dump_location=None, max_scan_range=[35.0, 55
         dump_location=dump_location,
         n_initial_points=n_initial_points,
         n_iterations=n_iterations,
+        tcav_on_amplitude=tcav_on_amplitude,
     )
     logger.debug(
         "Configured MLTCAVPhasing with max_scan_range=%s",

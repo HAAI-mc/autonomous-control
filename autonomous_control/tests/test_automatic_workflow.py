@@ -17,6 +17,7 @@ from autonomous_control.facet.runner import run_automatic_workflow
 from plugins.environments.inj_emit import Environment
 from plugins.interfaces.epics import Interface
 
+
 class TestAutomaticWorkflow:
     @pytest.fixture
     def env(self):
@@ -40,18 +41,18 @@ class TestAutomaticWorkflow:
                 del environment.variables[name]
 
         return environment
-    
+
     def test_run_automatic_workflow_on_va(self, env):
         # define a simple workflow with two steps
         workflow = [
             {
-                "type": "measure_emittance", 
+                "type": "measure_emittance",
                 "screen_name": "PROF10571",
-                },
+            },
             {
-                "type": "tcav_phasing", 
-                "max_scan_range": [-10, 10], 
-                "n_iterations": 3, 
+                "type": "tcav_phasing",
+                "max_scan_range": [-10, 10],
+                "n_iterations": 3,
                 "n_initial_points": 3,
                 "tcav_on_amplitude": 0.3,
             },
