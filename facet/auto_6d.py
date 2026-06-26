@@ -56,7 +56,11 @@ def run_automatic_6d_measurement(env, save_filename):
 
     # run automatic emittance measurement with TCAV off
     logger.info("running PROF10571 quad scan tcav off")
-    emittance_result_PROF10571_off, _, X = run_automatic_emittance(env, "PROF10571")
+    emittance_result_PROF10571_off, _, X = run_automatic_emittance(
+        env,
+        dump_location=env.save_directory,
+        screen_name="PROF10571",
+    )
     data["PROF10571_off"] = emittance_result_PROF10571_off.model_dump() | {
         "environment_variables": env.get_variables(env.variables.keys())
     }
@@ -70,7 +74,11 @@ def run_automatic_6d_measurement(env, save_filename):
 
     # run automatic emittance measurement with TCAV on
     logger.info("running PROF10571 quad scan tcav on")
-    emittance_result_PROF10571_on, _, X = run_automatic_emittance(env, "PROF10571")
+    emittance_result_PROF10571_on, _, X = run_automatic_emittance(
+        env,
+        dump_location=env.save_directory,
+        screen_name="PROF10571",
+    )
     data["PROF10571_on"] = emittance_result_PROF10571_on.model_dump() | {
         "environment_variables": env.get_variables(env.variables.keys())
     }
@@ -88,7 +96,11 @@ def run_automatic_6d_measurement(env, save_filename):
 
     # run automatic emittance measurement with TCAV off
     logger.info("running PROF10711 quad scan tcav off")
-    emittance_result_PROF10711_off, _, X = run_automatic_emittance(env, "PROF10711")
+    emittance_result_PROF10711_off, _, X = run_automatic_emittance(
+        env,
+        dump_location=env.save_directory,
+        screen_name="PROF10711",
+    )
     data["PROF10711_off"] = emittance_result_PROF10711_off.model_dump() | {
         "environment_variables": env.get_variables(env.variables.keys())
     }
@@ -102,7 +114,11 @@ def run_automatic_6d_measurement(env, save_filename):
 
     # run automatic emittance measurement with TCAV on
     logger.info("running PROF10711 quad scan tcav on")
-    emittance_result_PROF10711_on, _, X = run_automatic_emittance(env, "PROF10711")
+    emittance_result_PROF10711_on, _, X = run_automatic_emittance(
+        env,
+        dump_location=env.save_directory,
+        screen_name="PROF10711",
+    )
     data["PROF10711_on"] = emittance_result_PROF10711_on.model_dump() | {
         "environment_variables": env.get_variables(env.variables.keys())
     }

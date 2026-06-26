@@ -19,7 +19,7 @@ from two_bunch_boed_utils import (
 logger = logging.getLogger("auto_schottky_scan")
 
 @restore_on_error(context="auto_schottky_scan")
-def run_automatic_schottky_scan(environment, dump_location=None, config=None):
+def run_automatic_schottky_scan(env, dump_location=None, **kwargs):
 
     settings = merge_config(
         {
@@ -32,7 +32,7 @@ def run_automatic_schottky_scan(environment, dump_location=None, config=None):
             "n_posterior_samples": 1000,       # number of posterior samples to draw for T0 histogram and predictive curves
             "n_predictive_curves": 100,        # number of posterior predictive curves to
         },
-        config,
+        kwargs,
     )
     old_feedback_state = epics.caget("KLYS:LI10:31:SFB_PDIS")
     old_charge_feedback_state = epics.caget("SIOC:SYS1:ML03:AO502")
@@ -52,10 +52,10 @@ def run_automatic_schottky_scan(environment, dump_location=None, config=None):
         
         true_val = inputs['control_phase'] + (init_pdes_value - phase_w0ch6)
         
-        environment.set_variables({"KLYS:LI10:31:PDES": true_val})
+        env.set_variables({"KLYS:LI10:31:PDES": true_val})
 
         time.sleep(0.5)  # wait for settings to take effect and measurements to stabilize
-        output = environment.get_observables([settings["observable_name"]])
+        output = env.get_observables([settings["observable_name"]])
 
         # get readbacks of variables
         output.update({
@@ -154,7 +154,7 @@ def run_automatic_schottky_scan(environment, dump_location=None, config=None):
         best_t0 = np.median(t0_samples)
 
         # set RF back
-        environment.set_variables({"KLYS:LI10:31:PDES": init_pdes_value})
+        env.set_variables({"KLYS:LI10:31:PDES": init_pdes_value})
 
         # set laser timing
         tlaser_initial = epics.caget("OSC:LT10:20:FS_TGT_TIME")

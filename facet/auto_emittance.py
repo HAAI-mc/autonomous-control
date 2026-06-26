@@ -11,7 +11,15 @@ logger = logging.getLogger("auto_emittance")
 
 
 @restore_on_error(context="auto_emittance")
-def run_automatic_emittance(env, screen_name, config=None):
+def run_automatic_emittance(
+    env,
+    dump_location=None,
+    *,
+    screen_name="PROF10571",
+    config_directory=None,
+    screen_settle_time=2.0,
+    screens=None,
+):
     """Run an automatic emittance measurement for the specified screen.
 
     Inserts the requested screen, configures the emittance measurement object
@@ -22,13 +30,21 @@ def run_automatic_emittance(env, screen_name, config=None):
     env : Any
         Control environment with screen insertion, emittance configuration,
         and measurement interfaces.
-    screen_name : str
-        Name of the screen device to use.  Supported values are
+    dump_location : str or pathlib.Path, optional
+        Directory where environment-managed outputs should be saved.
+        When omitted, the environment's existing save directory is used.
+    screen_name : str, optional
+        Name of the screen device to use. Supported values are
         ``"PROF10571"`` and ``"PROF10711"``.
-    config : dict, optional
-        Configuration overrides, typically loaded from a config file. Supported
-        keys include ``config_directory``, ``screen_settle_time``, and a nested
-        ``screens`` mapping with per-screen insertion targets and config files.
+    config_directory : str or pathlib.Path, optional
+        Directory containing per-screen emittance configuration YAML files.
+        Defaults to the FACET badger resources emittance config directory.
+    screen_settle_time : float, optional
+        Wait time in seconds after changing screen targets, by default 2.0.
+    screens : dict, optional
+        Per-screen mapping of insertion targets and config file names.
+        Keys are screen names and values must include ``targets`` and
+        ``config_file`` entries.
 
     Returns
     -------
@@ -40,35 +56,35 @@ def run_automatic_emittance(env, screen_name, config=None):
         Optimizer instance from the emittance measurement.
     """
 
+    if config_directory is None:
+        config_directory = f"{os.environ['BADGER_RESOURCES']}/facet/plugins/environments/inj_emit/emittance_measurement_configs/"
+
+    default_screens = {
+        "PROF10571": {
+            "targets": {"PROF10571": 1},
+            "config_file": "PROF10571.yaml",
+        },
+        "PROF10711": {
+            "targets": {"PROF10571": 0, "PROF10711": 1},
+            "config_file": "PROF10711.yaml",
+        },
+    }
+    screen_settings = merge_config(default_screens, screens)
+
+    if dump_location is not None:
+        env.save_directory = str(dump_location)
+
     logger.info(f"Starting automatic emittance measurement on screen: {screen_name}")
 
-    settings = merge_config(
-        {
-            "config_directory": f"{os.environ['BADGER_RESOURCES']}/facet/plugins/environments/inj_emit/emittance_measurement_configs/",
-            "screen_settle_time": 2.0,
-            "screens": {
-                "PROF10571": {
-                    "targets": {"PROF10571": 1},
-                    "config_file": "PROF10571.yaml",
-                },
-                "PROF10711": {
-                    "targets": {"PROF10571": 0, "PROF10711": 1},
-                    "config_file": "PROF10711.yaml",
-                },
-            },
-        },
-        config,
-    )
-
-    screen_config = settings["screens"].get(screen_name)
+    screen_config = screen_settings.get(screen_name)
     if screen_config is None:
         raise ValueError(f"Unsupported screen_name: {screen_name}")
 
     for name, target in screen_config["targets"].items():
         env.screens[name].target = target
-    time.sleep(settings["screen_settle_time"])
+    time.sleep(screen_settle_time)
     env.emittance_config_fname = os.path.join(
-        settings["config_directory"], screen_config["config_file"]
+        config_directory, screen_config["config_file"]
     )
     logger.info("Configured environment for %s", screen_name)
 

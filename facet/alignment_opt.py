@@ -86,11 +86,8 @@ alignment_pvs = {
 @restore_on_error(context="alignment_opt")
 def run_automatic_alignment(
     env,
-    to_screen_name="PROF571",
-    n_steps=20,
-    old_data=None,
-    target_value=1.0,
-    config=None,
+    dump_location=None,
+    **kwargs,
 ):
     """Run the Bayesian alignment optimization process on DIAG0.
 
@@ -99,30 +96,26 @@ def run_automatic_alignment(
     env : Any
         Control environment providing ``set_screen``, ``get_bounds``,
         ``get_variables``, ``set_variables``, and ``get_observables``.
-    to_screen_name : str, optional
-        Screen name to align to, by default ``"PROF571"``.
-    n_steps : int, optional
-        Maximum number of Bayesian optimization steps, by default 20.
-    old_data : pandas.DataFrame or None, optional
-        Previously collected data to seed the optimizer.  When ``None``,
-        random initial evaluations are performed instead.
-    target_value : float, optional
-        BPM-norm convergence threshold; optimization stops early when
-        the best ``norm`` falls below this value, by default 1.0.
-    config : dict, optional
+    dump_location : str or pathlib.Path, optional
+        Directory for optimization dump files. Present for signature
+        consistency; this routine currently does not write a dump file.
+    **kwargs
         Configuration overrides, typically loaded from a config file. Supported
-        keys include ``screens``, ``constraints``, BPM weighting overrides, and
-        search-region or generator options.
+        keys include ``to_screen_name``, ``n_steps``, ``old_data``,
+        ``target_value``, ``screens``, ``constraints``, BPM weighting
+        overrides, and search-region or generator options.
 
     Returns
     -------
     Xopt
         Optimizer instance containing all collected evaluations.
     """
-    env.set_screen(to_screen_name)
-
     settings = merge_config(
         {
+            "to_screen_name": "PROF571",
+            "n_steps": 20,
+            "old_data": None,
+            "target_value": 1.0,
             "screens": alignment_pvs,
             "constraints": {"transmission": ["GREATER_THAN", 0.9]},
             "bpm_weight_overrides": {"330": 2.0, "390": 2.0},
@@ -131,8 +124,18 @@ def run_automatic_alignment(
             "initial_random_evaluations": 10,
             "generator": {"n_interpolate_points": 4, "max_time": 2.5},
         },
-        config,
+        kwargs,
     )
+
+    to_screen_name = settings["to_screen_name"]
+    n_steps = settings["n_steps"]
+    old_data = settings["old_data"]
+    target_value = settings["target_value"]
+
+    env.set_screen(to_screen_name)
+
+    if dump_location is not None:
+        logger.debug("dump_location provided but ignored in alignment_opt: %s", dump_location)
 
     logger.info(f"Starting automatic alignment for screen: {to_screen_name}")
     # if just transporting beam to OTRDG02, use all BPMs except 470 and 520

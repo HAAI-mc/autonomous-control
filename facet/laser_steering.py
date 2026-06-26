@@ -40,9 +40,9 @@ from bax_algorithms.utils import get_bax_mean_prediction, tuning_input_tensor_to
 from bax_algorithms.visualize import visualize_virtual_measurement_result
 
 try:
-    from facet.optimization_utils import safe_evaluate_best_point
+    from facet.optimization_utils import merge_config, safe_evaluate_best_point
 except ImportError:
-    from optimization_utils import safe_evaluate_best_point
+    from optimization_utils import merge_config, safe_evaluate_best_point
 
 from xopt.numerical_optimizer import LBFGSOptimizer
 
@@ -268,7 +268,7 @@ class BaxGenerator(BayesianGenerator):
         return eig
 
 
-def optimize_solenoid_alignment(env, dump_location):
+def optimize_solenoid_alignment(env, dump_location=None, **kwargs):
     """Run BAX optimization for solenoid alignment.
 
     Parameters
@@ -278,12 +278,26 @@ def optimize_solenoid_alignment(env, dump_location):
         interfaces used by this routine.
     dump_location : str or pathlib.Path
         Requested output location for optimization artifacts.
+    **kwargs
+        Configuration overrides. Supported keys include
+        ``initial_random_evaluations`` and ``n_steps``.
 
     Returns
     -------
     Xopt
         Configured and executed Xopt instance containing optimization data.
     """
+
+    if dump_location is None:
+        dump_location = "."
+
+    settings = merge_config(
+        {
+            "initial_random_evaluations": 2,
+            "n_steps": 30,
+        },
+        kwargs,
+    )
 
     # TODO: check data folder exists
 
@@ -388,9 +402,9 @@ def optimize_solenoid_alignment(env, dump_location):
     # evaluate the current point and two random points
     logger.info("Running initial evaluations (current + 2 random points).")
     X.evaluate_data(env.get_variables(X.vocs.variable_names))
-    X.random_evaluate(2)
+    X.random_evaluate(settings["initial_random_evaluations"])
 
-    for i in range(30):
+    for i in range(settings["n_steps"]):
         logger.debug("Running optimization step %d/5", i + 1)
         X.step()
 

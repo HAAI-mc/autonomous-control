@@ -19,7 +19,7 @@ logger = logging.getLogger("energy_spread_opt")
 
 
 @restore_on_error(context="e_spread_opt")
-def optimize_energy_spread(env, dump_location, config=None):
+def optimize_energy_spread(env, dump_location=None, **kwargs):
     """Optimize beam energy spread using klystron phase control.
 
     Parameters
@@ -29,7 +29,7 @@ def optimize_energy_spread(env, dump_location, config=None):
         measurement interfaces.
     dump_location : str or pathlib.Path
         Requested output location for optimization artifacts.
-    config : dict, optional
+    **kwargs
         Configuration overrides, typically loaded from a config file. Supported
         keys include PV names, phase bounds, objectives, and optimization loop
         counts.
@@ -44,6 +44,9 @@ def optimize_energy_spread(env, dump_location, config=None):
     RuntimeError
         If the dipole current state is not suitable for energy measurements.
     """
+    if dump_location is None:
+        dump_location = "."
+
     settings = merge_config(
         {
             "dipole_correct_state": 0.125,
@@ -61,7 +64,7 @@ def optimize_energy_spread(env, dump_location, config=None):
             "phase_tolerance": 0.05,
             "max_settle_polls": 40,
         },
-        config,
+        kwargs,
     )
     logger.info("Starting energy spread optimization.")
     dipole_correct_state = settings["dipole_correct_state"]

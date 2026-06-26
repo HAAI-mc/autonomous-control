@@ -1,5 +1,6 @@
 import os
 import sys
+import time
 import pytest
 import numpy as np
 
@@ -139,9 +140,16 @@ class TestAutomaticTcavPhasing:
         tcav = _get_tcav_or_fail(env)
         set_tcav_mode_config_and_wait(tcav, "ACCEL_STDBY")
         set_tcav_amplitude_and_wait(tcav, 0.3)
-        set_tcav_phase_and_wait(tcav, 8.0)        
+        set_tcav_phase_and_wait(tcav, 8.0) 
 
-        X = run_automatic_tcav_phasing(env, max_scan_range=[-10, 10])
+        time.sleep(5.0)  # wait for the VA to settle after changing the TCAV settings
+
+        X = run_automatic_tcav_phasing(
+            env,
+            max_scan_range=[-10, 10],
+            n_iterations=3,
+            n_initial_points=3,
+        )
 
         # final phase value should be zero and tcav amplitude should be set to 0.3
         assert np.isclose(env.tcav.amplitude, 0.3, atol=1e-3)

@@ -10,7 +10,7 @@ from ml_tto.errors import TransmissionError
 import os
 
 
-from optimization_utils import restore_on_error, safe_evaluate_best_point
+from optimization_utils import merge_config, restore_on_error, safe_evaluate_best_point
 
 # Setup Logging
 logger = logging.getLogger("auto_alignment")
@@ -118,12 +118,8 @@ alignment_pvs = {
 @restore_on_error(context="alignment_opt_es")
 def run_automatic_alignment(
     env,
-    to_screen_name="PROF571",
-    n_steps=100,
-    old_data=None,
-    target_value=1.0,
-    region_fraction=0.15,
-    dump_location=".",
+    dump_location=None,
+    **kwargs,
 ):
     """Run the extremum-seeking alignment optimization process.
 
@@ -132,25 +128,38 @@ def run_automatic_alignment(
     env : Any
         Control environment providing ``get_bounds``, ``get_variables``,
         and ``get_observables``.
-    to_screen_name : str, optional
-        Screen name to align to, by default ``"PROF571"``.
-    n_steps : int, optional
-        Maximum number of extremum-seeking steps, by default 100.
-    old_data : pandas.DataFrame or None, optional
-        Previously collected data to seed the optimizer.
-    target_value : float, optional
-        BPM-norm convergence threshold, by default 1.0.
-    region_fraction : float, optional
-        Half-width of the search region as a fraction of variable range,
-        by default 0.15.
     dump_location : str or pathlib.Path, optional
-        Directory for optimization dump files, by default ``"."``.
+        Directory for optimization dump files.
+    **kwargs
+        Configuration overrides. Supported keys include
+        ``to_screen_name``, ``n_steps``, ``old_data``, ``target_value``,
+        ``region_fraction``, and ``dump_location``.
 
     Returns
     -------
     Xopt
         Optimizer instance containing all collected evaluations.
     """
+    settings = merge_config(
+        {
+            "to_screen_name": "PROF571",
+            "n_steps": 100,
+            "old_data": None,
+            "target_value": 1.0,
+            "region_fraction": 0.15,
+            "dump_location": ".",
+        },
+        kwargs,
+    )
+
+    to_screen_name = settings["to_screen_name"]
+    n_steps = settings["n_steps"]
+    old_data = settings["old_data"]
+    target_value = settings["target_value"]
+    region_fraction = settings["region_fraction"]
+    if dump_location is None:
+        dump_location = settings["dump_location"]
+
     # env.set_screen(to_screen_name)
 
     logger.info(f"Starting automatic alignment for screen: {to_screen_name}")

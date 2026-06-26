@@ -447,7 +447,7 @@ class MLTCAVPhasing(BaseModel):
 
 
 @restore_on_error(context="tcav_phasing")
-def run_automatic_tcav_phasing(env, dump_location=None, max_scan_range=[35.0, 55.0]):
+def run_automatic_tcav_phasing(env, dump_location=None, **kwargs):
     """Create and run the automatic TCAV phasing controller.
 
     Parameters
@@ -456,9 +456,9 @@ def run_automatic_tcav_phasing(env, dump_location=None, max_scan_range=[35.0, 55
         Environment that provides TCAV, BPM, transmission measurement, and
         callback interfaces.
     dump_location : str or Path, optional
-        Directory to save optmax_scan_rangeenvdumps, by default None (no dumps).
-    max_scan_range : list of float, optional
-        Range of phases to scan during optimization, by default [35.0, 55.0].
+        Directory to save optimization dumps, by default None (no dumps).
+    **kwargs
+        Keyword arguments passed to MLTCAVPhasing constructor.
 
     Returns
     -------
@@ -477,8 +477,8 @@ def run_automatic_tcav_phasing(env, dump_location=None, max_scan_range=[35.0, 55
         transmission_measurement=env.transmission_measurement,
         evaluate_callback=eval_callback,
         verbose=False,
-        max_scan_range=max_scan_range,
         dump_location=dump_location,
+        **kwargs,
     )
     logger.debug(
         "Configured MLTCAVPhasing with max_scan_range=%s",
