@@ -12,7 +12,7 @@ sys.path.insert(0, os.path.join(badger_resources, "facet"))
 # add the autonomous control directory to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 
-from facet.runner import run_automatic_workflow
+from autonomous_control.facet.runner import run_automatic_workflow
 
 from plugins.environments.inj_emit import Environment
 from plugins.interfaces.epics import Interface
