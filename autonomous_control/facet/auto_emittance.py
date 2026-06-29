@@ -2,16 +2,10 @@ import logging
 import os
 import time
 
-try:
-    from autonomous_control.facet.optimization_utils import (
-        merge_config,
-        restore_on_error,
-    )
-except ImportError:
-    from autonomous_control.facet.optimization_utils import (
-        merge_config,
-        restore_on_error,
-    )
+from autonomous_control.facet.optimization_utils import (
+    merge_config,
+    restore_on_error,
+)
 
 logger = logging.getLogger("auto_emittance")
 
@@ -87,6 +81,9 @@ def run_automatic_emittance(
 
     for name, target in screen_config["targets"].items():
         env.screens[name].target = target
+
+    # wait for screen to settle after changing targets
+    logger.info(f"Waiting for {screen_settle_time} seconds for screen to settle...")
     time.sleep(screen_settle_time)
     env.emittance_config_fname = os.path.join(
         config_directory, screen_config["config_file"]
