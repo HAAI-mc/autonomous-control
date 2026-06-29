@@ -73,18 +73,6 @@ def run_automatic_workflow(
         The logging level to use for the workflow execution. Default is logging.INFO.
 
     """
-
-    ts = time.time()
-    workflow_timestamp = int(ts)
-    log_file = f"automatic_workflow_{workflow_timestamp}.log"
-    workflow_start_time = time.time()
-    force_reconfigure_logging = "PYTEST_CURRENT_TEST" in os.environ
-    workflow_xopt_dump_file = f"automatic_workflow_xopt_{workflow_timestamp}.yaml"
-    workflow_xopt_dump_data = {
-        "workflow_timestamp": workflow_timestamp,
-        "task_handlers": {},
-    }
-
     logging.basicConfig(
         level=logging_level,
         handlers=[
@@ -106,37 +94,29 @@ def run_automatic_workflow(
         log_file,
     )
 
+    ts = int(time.time())
+    log_file = f"automatic_workflow_{ts}.log"
+    workflow_start_time = time.time()
+    force_reconfigure_logging = "PYTEST_CURRENT_TEST" in os.environ
+
+    os.makedirs(dump_location, exist_ok=True)
+    logging.info("Ensured workflow output directory exists: %s", dump_location)
+
+    workflow_xopt_dump_file = os.path.join(
+        dump_location,
+        f"automatic_workflow_xopt_{ts}.yaml",
+    )
+    workflow_xopt_dump_data = {
+        "workflow_timestamp": ts,
+        "task_handlers": {},
+    }
+
     # create and configure the FACET-II badger environment
     if env is None:
         logging.info("Creating new FACET-II badger environment.")
         env = create_env()
     else:
         logging.info("Using provided FACET-II badger environment.")
-
-    if dump_location is not None:
-        os.makedirs(dump_location, exist_ok=True)
-        logging.info("Ensured workflow output directory exists: %s", dump_location)
-
-        workflow_xopt_dump_file = os.path.join(
-            dump_location,
-            f"automatic_workflow_xopt_{workflow_timestamp}.yaml",
-        )
-        with open(workflow_xopt_dump_file, "w", encoding="utf-8") as f:
-            yaml.safe_dump(workflow_xopt_dump_data, f, sort_keys=False)
-        logging.info("Workflow Xopt dump file: %s", workflow_xopt_dump_file)
-
-    # reset the environment to a safe state before starting the workflow
-    pre_reset_start = time.time()
-    logging.info("Resetting environment to safe state before workflow.")
-    try:
-        reset_env(env)
-    except Exception:
-        logging.exception("Pre-workflow environment reset failed.")
-        raise
-    logging.info(
-        "Pre-workflow environment reset completed in %.2f s.",
-        time.time() - pre_reset_start,
-    )
 
     completed_steps = 0
     total_steps = len(workflow)
@@ -152,10 +132,11 @@ def run_automatic_workflow(
             step_kwargs if step_kwargs else "{}",
         )
 
-        step_handler = STEP_HANDLERS.get(step_type)
-        if step_handler is None:
-            logging.error(f"Unknown workflow type: {step_type}")
-            raise ValueError(f"Unknown workflow type: {step_type}")
+        try:
+            step_handler = STEP_HANDLERS[step_type]
+        except KeyError:
+            logging.error("Unknown workflow step type: %s", step_type)
+            raise ValueError(f"Unknown workflow step type: {step_type}")
 
         step_start = time.time()
         try:
@@ -170,28 +151,26 @@ def run_automatic_workflow(
             )
             raise
 
-        if workflow_xopt_dump_file is not None:
-            serialized_xopt = step_result.model_dump(mode="json")
-
-            handler_name = getattr(step_handler, "__name__", step_type)
-            handler_records = workflow_xopt_dump_data["task_handlers"].setdefault(
-                handler_name,
-                [],
-            )
-            handler_records.append(
-                {
-                    "step_index": i,
-                    "step_type": step_type,
-                    "xopt": serialized_xopt,
-                }
-            )
-            with open(workflow_xopt_dump_file, "w", encoding="utf-8") as f:
-                yaml.safe_dump(workflow_xopt_dump_data, f, sort_keys=False)
-            logging.info(
-                "Appended Xopt serialization for %s to %s",
-                handler_name,
-                workflow_xopt_dump_file,
-            )
+        serialized_xopt = step_result.model_dump(mode="json")
+        handler_name = getattr(step_handler, "__name__", step_type)
+        handler_records = workflow_xopt_dump_data["task_handlers"].setdefault(
+            handler_name,
+            [],
+        )
+        handler_records.append(
+            {
+                "step_index": i,
+                "step_type": step_type,
+                "xopt": serialized_xopt,
+            }
+        )
+        with open(workflow_xopt_dump_file, "w", encoding="utf-8") as f:
+            yaml.safe_dump(workflow_xopt_dump_data, f, sort_keys=False)
+        logging.info(
+            "Appended Xopt serialization for %s to %s",
+            handler_name,
+            workflow_xopt_dump_file,
+        )
 
         completed_steps += 1
         logging.info(
@@ -202,6 +181,7 @@ def run_automatic_workflow(
             time.time() - step_start,
         )
 
+    # if requested, reset the environment to a safe state
     if reset_env_after:
         logging.info("Resetting environment to safe state.")
         post_reset_start = time.time()
@@ -235,7 +215,7 @@ def run_automatic_workflow(
 def run_automatic_workflow_from_file(
     workflow_file: str,
     env: Any = None,
-    dump_location: str = None,
+    dump_location: str = ".",
     reset_env_after: bool = True,
     logging_level: int = logging.INFO,
 ):
@@ -286,7 +266,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--dump_location",
         type=str,
-        default=None,
+        default=".",
         help="Optional output directory for workflow step artifacts.",
     )
     parser.add_argument(
