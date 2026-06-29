@@ -12,10 +12,11 @@ sys.path.insert(0, os.path.join(badger_resources, "facet"))
 # add the autonomous control directory to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 
-from facet.runner import run_automatic_workflow
+from autonomous_control.facet.runner import run_automatic_workflow
 
 from plugins.environments.inj_emit import Environment
 from plugins.interfaces.epics import Interface
+
 
 class TestAutomaticWorkflow:
     @pytest.fixture
@@ -40,18 +41,18 @@ class TestAutomaticWorkflow:
                 del environment.variables[name]
 
         return environment
-    
+
     def test_run_automatic_workflow_on_va(self, env):
         # define a simple workflow with two steps
         workflow = [
             {
-                "type": "measure_emittance", 
-                "screen_name": "PROF10571",
-                },
+                "type": "measure_emittance",
+                "screen_name": "PR10571",
+            },
             {
-                "type": "tcav_phasing", 
-                "max_scan_range": [-10, 10], 
-                "n_iterations": 3, 
+                "type": "tcav_phasing",
+                "max_scan_range": [-10, 10],
+                "n_iterations": 3,
                 "n_initial_points": 3,
                 "tcav_on_amplitude": 0.3,
             },

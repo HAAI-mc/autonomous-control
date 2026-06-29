@@ -58,7 +58,7 @@ def restore_on_error(context: Optional[str] = None):
     Examples
     --------
     >>> @restore_on_error(context="alignment_opt")
-    ... def run_automatic_alignment(env, to_screen_name="PROF571"):
+    ... def run_automatic_alignment(env, to_screen_name="PR10571"):
     ...     ...
     """
 

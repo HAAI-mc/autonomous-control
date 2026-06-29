@@ -1,0 +1,46 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "autonomous-control"
+version = "0.1.0"
+description = "Code used to run autonomous operations at FACET-II and AWA."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+	"numpy",
+	"pandas",
+	"matplotlib",
+	"torch",
+	"botorch",
+	"gpytorch",
+	"xopt",
+	"pydantic>=2",
+	"tenacity",
+	"pyepics",
+]
+
+[project.optional-dependencies]
+facility = [
+	"lcls-tools",
+	"ml-tto",
+]
+test = [
+	"pytest",
+]
+dev = [
+	"pytest",
+	"ruff",
+	"pre-commit",
+]
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+include = ["autonomous_control*"]
+
+[tool.pytest.ini_options]
+log_cli = true
+log_cli_level = "DEBUG"

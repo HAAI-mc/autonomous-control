@@ -1,8 +1,6 @@
 import os
 import sys
-import time
 import pytest
-import numpy as np
 
 # add the path that contains the facet environment
 sys.path.insert(0, os.path.join(os.environ["BADGER_RESOURCES"], "facet"))
@@ -13,9 +11,10 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 from plugins.environments.inj_emit import Environment
 from plugins.interfaces.epics import Interface
 
-from facet.auto_emittance import run_automatic_emittance
+from autonomous_control.facet.auto_emittance import run_automatic_emittance
 
 import logging
+
 logging.basicConfig(level=logging.DEBUG)
 
 
@@ -42,20 +41,16 @@ class TestAutomaticEmittance:
         return environment
 
     def test_screen_measurement(self, env):
-        assert env.screens["PROF10571"].image.sum() > 0, (
-            "Screen PROF10571 should have a non-empty image"
+        assert env.screens["PR10571"].image.sum() > 0, (
+            "Screen PR10571 should have a non-empty image"
         )
-        assert env.screens["PROF10711"].image.sum() > 0, (
-            "Screen PROF10711 should have a non-empty image"
+        assert env.screens["PR10711"].image.sum() > 0, (
+            "Screen PR10711 should have a non-empty image"
         )
 
-        env.create_beamprofile_measurement("PROF10571").measure()
-        env.create_beamprofile_measurement("PROF10711").measure()
+        env.create_beamprofile_measurement("PR10571").measure()
+        env.create_beamprofile_measurement("PR10711").measure()
 
     def test_run_automatic_emittance_on_va(self, env):
-        result, fname, X = run_automatic_emittance(
-            env,
-            dump_location=".",
-            screen_name="PROF10571",
-        )
+        result, fname, X = run_automatic_emittance(env, screen_name="PR10571")
         print(X)

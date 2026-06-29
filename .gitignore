@@ -209,3 +209,5 @@ __marimo__/
 *.h5
 *.jpeg
 *.png
+
+dev/*

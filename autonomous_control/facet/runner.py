@@ -3,15 +3,18 @@ import sys
 import time
 import logging
 from typing import Any
+import yaml
+import argparse
 
-from .laser_steering import optimize_solenoid_alignment
-from .auto_emittance import run_automatic_emittance
-from .auto_schottky import run_automatic_schottky_scan
-from .alignment_opt_es import run_automatic_alignment
-from .e_spread_opt import optimize_energy_spread
-from .emittance_opt import optimize_injector_emittance
-from .tcav_phasing import run_automatic_tcav_phasing
-from .create_env import create_env, reset_env
+
+from autonomous_control.facet.laser_steering import optimize_solenoid_alignment
+from autonomous_control.facet.auto_emittance import run_automatic_emittance
+from autonomous_control.facet.auto_schottky import run_automatic_schottky_scan
+from autonomous_control.facet.alignment_opt_es import run_automatic_alignment
+from autonomous_control.facet.e_spread_opt import optimize_energy_spread
+from autonomous_control.facet.emittance_opt import optimize_injector_emittance
+from autonomous_control.facet.tcav_phasing import run_automatic_tcav_phasing
+from autonomous_control.facet.create_env import create_env, reset_env
 
 STEP_HANDLERS = {
     "measure_emittance": run_automatic_emittance,
@@ -23,18 +26,22 @@ STEP_HANDLERS = {
     "optimize_laser_steering": optimize_solenoid_alignment,
 }
 
+
 def run_automatic_workflow(
-        workflow: list[dict], 
-        env: Any = None,
-        dump_location: str = None, 
-        reset_env_after: bool = True, 
-        logging_level: int = logging.INFO
-    ):
+    workflow: list[dict],
+    env: Any = None,
+    dump_location: str = ".",
+    reset_env_after: bool = True,
+    logging_level: int = logging.INFO,
+):
     """
     Run a sequence of automatic workflows in the FACET-II badger environment.
-    
-    Iterates through the provided list of workflow steps, executing each step in order. 
-    Each step is a dictionary that specifies the type of workflow to run and any necessary parameters.
+
+    If no environment is provided, a new FACET-II badger environment will be created.
+    The workflow is defined as a list of dictionaries, where each dictionary specifies
+    the type of workflow to run and any necessary parameters. We iterate through the workflow steps,
+    executing each one in order. After all steps are completed, the
+    environment can be reset to a safe state if requested.
 
     Example
     -------
@@ -46,12 +53,12 @@ def run_automatic_workflow(
     >>> ]
     >>> run_automatic_workflow(workflow, dump_location="results", reset_env_after=True, logging_level=logging.INFO)
     ```
-    
+
     Parameters
     ----------
     workflow : list of dict
-        A list of dictionaries, where each dictionary represents a workflow step. 
-        Each dictionary must contain a 'type' key that specifies the type of workflow to run, 
+        A list of dictionaries, where each dictionary represents a workflow step.
+        Each dictionary must contain a 'type' key that specifies the type of workflow to run,
         and may contain additional keys for parameters required by that workflow.
     env : Any, optional
         An existing FACET-II badger environment. If not provided, a new environment will be created.
@@ -75,14 +82,14 @@ def run_automatic_workflow(
     logging.basicConfig(
         level=logging_level,
         handlers=[
-            logging.FileHandler(log_file), # Writes to file
-            logging.StreamHandler(sys.stdout)    # Writes to console
+            logging.FileHandler(log_file),  # Writes to file
+            logging.StreamHandler(sys.stdout),  # Writes to console
         ],
-        encoding='utf-8',
-        format='%(asctime)s - %(levelname)s - %(message)s',
+        encoding="utf-8",
+        format="%(asctime)s - %(levelname)s - %(message)s",
         force=force_reconfigure_logging,
     )
-    logging.getLogger('matplotlib').setLevel(logging.INFO)
+    logging.getLogger("matplotlib").setLevel(logging.INFO)
     logging.info("Starting automatic workflow...")
     logging.info(
         "Workflow context: steps=%d dump_location=%s reset_env_after=%s logging_level=%s log_file=%s",
@@ -171,7 +178,9 @@ def run_automatic_workflow(
             time.time() - post_reset_start,
         )
     else:
-        logging.info("Skipping post-workflow environment reset (reset_env_after=False).")
+        logging.info(
+            "Skipping post-workflow environment reset (reset_env_after=False)."
+        )
 
     logging.info("Automatic workflow completed.")
     logging.info(
@@ -183,3 +192,85 @@ def run_automatic_workflow(
 
     # return logging file name for reference
     return log_file
+
+
+def run_automatic_workflow_from_file(
+    workflow_file: str,
+    env: Any = None,
+    dump_location: str = None,
+    reset_env_after: bool = True,
+    logging_level: int = logging.INFO,
+):
+    """
+    Run a sequence of automatic workflows in the FACET-II badger environment from a YAML file.
+
+    Parameters
+    ----------
+    workflow_file : str
+        Path to a YAML file that defines the workflow steps. The file should contain a list of dictionaries,
+        where each dictionary represents a workflow step with a 'type' key and any necessary parameters.
+    env : Any, optional
+        An existing FACET-II badger environment. If not provided, a new environment will be created.
+    dump_location : str, optional
+        If provided, the path to an output directory where workflow steps may write
+        their own result artifacts. The directory will be created automatically if
+        needed. If not provided, step handlers will manage their own default output
+        locations.
+    reset_env_after : bool, optional
+        If True, the FACET-II badger environment will be reset to a safe state after all workflow steps have been executed. Default is True.
+    logging_level : int, optional
+        The logging level to use for the workflow execution. Default is logging.INFO.
+    """
+
+    with open(workflow_file, "r") as f:
+        workflow = yaml.safe_load(f)
+
+    return run_automatic_workflow(
+        workflow=workflow,
+        env=env,
+        dump_location=dump_location,
+        reset_env_after=reset_env_after,
+        logging_level=logging_level,
+    )
+
+
+if __name__ == "__main__":
+    # CLI interface for running automatic workflows from a YAML file
+
+    parser = argparse.ArgumentParser(
+        description="Run an automatic workflow in the FACET-II badger environment from a YAML file."
+    )
+    parser.add_argument(
+        "workflow_file",
+        type=str,
+        help="Path to the YAML file defining the workflow steps.",
+    )
+    parser.add_argument(
+        "--dump_location",
+        type=str,
+        default=None,
+        help="Optional output directory for workflow step artifacts.",
+    )
+    parser.add_argument(
+        "--reset_env_after",
+        action="store_true",
+        help="Reset the environment to a safe state after workflow completion.",
+    )
+    parser.add_argument(
+        "--logging_level",
+        type=str,
+        default="INFO",
+        help="Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL). Default is INFO.",
+    )
+
+    args = parser.parse_args()
+
+    # Convert logging level string to logging module constant
+    logging_level = getattr(logging, args.logging_level.upper(), logging.INFO)
+
+    run_automatic_workflow_from_file(
+        workflow_file=args.workflow_file,
+        dump_location=args.dump_location,
+        reset_env_after=args.reset_env_after,
+        logging_level=logging_level,
+    )

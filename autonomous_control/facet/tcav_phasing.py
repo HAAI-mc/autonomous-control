@@ -17,10 +17,8 @@ from tenacity import (
     wait_fixed,
 )
 
-try:
-    from facet.optimization_utils import restore_on_error
-except ImportError:
-    from .optimization_utils import restore_on_error
+
+from autonomous_control.facet.optimization_utils import restore_on_error
 import numpy as np
 from pydantic import BaseModel, ConfigDict, PositiveFloat, PositiveInt
 from xopt import Xopt, Evaluator, VOCS
@@ -41,7 +39,9 @@ TCAV_SETTLE_ATTEMPTS = 40
 TCAV_SETTLE_WAIT = 0.5
 TCAV_READ_RETRY_ATTEMPTS = 5
 TCAV_READ_RETRY_WAIT = 0.25
-TCAV_STATE_CHANGE_WAIT = 10.0  # seconds to wait after changing TCAV mode before reading values
+TCAV_STATE_CHANGE_WAIT = (
+    10.0  # seconds to wait after changing TCAV mode before reading values
+)
 
 
 def _is_timeout_exception(exc: BaseException) -> bool:
@@ -137,7 +137,7 @@ def _set_tcav_property_and_wait(
             f"TCAV {value_label} failed to settle within timeout: "
             f"target={target_value} readback={readback_value} polls={TCAV_SETTLE_ATTEMPTS}"
         )
-    
+
     logger.debug(
         "TCAV %s successfully set to %s (readback: %s)",
         set_attr,
@@ -207,7 +207,10 @@ def set_tcav_mode_config_and_wait(
     )
     # NOTE: there are no readbacks for the mode change, so we just wait a few seconds to let the TCAV update
     if current_mode != target_mode:
-        logger.debug("waiting %s seconds for TCAV to update after mode change", TCAV_STATE_CHANGE_WAIT)
+        logger.debug(
+            "waiting %s seconds for TCAV to update after mode change",
+            TCAV_STATE_CHANGE_WAIT,
+        )
         time.sleep(TCAV_STATE_CHANGE_WAIT)
 
 

@@ -2,15 +2,10 @@ import os
 import sys
 import time
 import pytest
-
-badger_resources = os.getenv("BADGER_RESOURCES")
-if badger_resources is None:
-    pytest.skip("BADGER_RESOURCES is not configured", allow_module_level=True)
-
 import numpy as np
 
 # add the path that contains the facet environment
-sys.path.insert(0, os.path.join(badger_resources, "facet"))
+sys.path.insert(0, os.path.join(os.environ["BADGER_RESOURCES"], "facet"))
 
 # add the autonomous control directory to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
@@ -18,7 +13,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 from plugins.environments.inj_emit import Environment
 from plugins.interfaces.epics import Interface
 
-from facet.tcav_phasing import (
+from autonomous_control.facet.tcav_phasing import (
     MLTCAVPhasing,
     run_automatic_tcav_phasing,
     set_tcav_amplitude_and_wait,
@@ -27,6 +22,7 @@ from facet.tcav_phasing import (
 )
 
 import logging
+
 logging.basicConfig(level=logging.DEBUG)
 
 
@@ -124,8 +120,6 @@ class TestAutomaticTcavPhasing:
             f"Nominal centroid in STDBY should be near 0.0, got {nominal_centroid}"
         )
 
-
-
     def test_run_tcav_phasing(self, env):
         env.upstream_bpm_name = "BPM10371"
         env.downstream_bpm_name = "BPM10651"
@@ -145,7 +139,7 @@ class TestAutomaticTcavPhasing:
         tcav = _get_tcav_or_fail(env)
         set_tcav_mode_config_and_wait(tcav, "ACCEL_STDBY")
         set_tcav_amplitude_and_wait(tcav, 0.3)
-        set_tcav_phase_and_wait(tcav, 8.0) 
+        set_tcav_phase_and_wait(tcav, 8.0)
 
         time.sleep(5.0)  # wait for the VA to settle after changing the TCAV settings
 

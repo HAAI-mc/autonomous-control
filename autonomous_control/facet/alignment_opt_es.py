@@ -8,9 +8,15 @@ import time
 from ml_tto.errors import TransmissionError
 import os
 
+from xopt.vocs import (
+    get_local_region,
+)
 
-from .optimization_utils import restore_on_error, safe_evaluate_best_point
-from .utils import get_local_region
+
+from autonomous_control.facet.optimization_utils import (
+    restore_on_error,
+    safe_evaluate_best_point,
+)
 
 # Setup Logging
 logger = logging.getLogger("auto_alignment")
@@ -18,7 +24,7 @@ logger = logging.getLogger("auto_alignment")
 
 bpms = [371, 425, 511, 525, 581, 631, 651]
 alignment_pvs = {
-    "PROF571": {
+    "PR10571": {
         "corrector_pvs": [
             f"XCOR:IN10:{ele}:BCTRL" for ele in [221, 311, 381, 411, 491, 521, 641]
         ]
@@ -60,12 +66,12 @@ alignment_pvs = {
 @restore_on_error(context="alignment_opt_es")
 def run_automatic_alignment(
     env,
-    dump_location=None,
-    *,
-    to_screen_name="PROF571",
+    dump_location=".",
+    to_screen_name="PR10571",
     n_steps=100,
     target_value=1.0,
     region_fraction=0.15,
+    oscillation_size=0.01,
 ):
     """Run the extremum-seeking alignment optimization process.
 
@@ -74,49 +80,35 @@ def run_automatic_alignment(
     env : Any
         Control environment providing ``get_bounds``, ``get_variables``,
         and ``get_observables``.
-    dump_location : str or pathlib.Path, optional
+    dump_location : str or pathlib.Path
         Directory for optimization dump files.
     to_screen_name : str, optional
-        Screen key from ``alignment_pvs`` used for the alignment optimization.
+        Screen name to align to, by default ``"PR10571"``.
     n_steps : int, optional
-        Number of optimization steps.
+        Maximum number of extremum-seeking steps, by default 100.
     target_value : float, optional
-        Early-stop threshold for the ``norm`` objective.
+        BPM-norm convergence threshold, by default 1.0.
     region_fraction : float, optional
-        Fractional local-region width around the current machine state.
+        Half-width of the search region as a fraction of variable range,
+        by default 0.15.
+    oscillation_size : float, optional
+        Size of the oscillation for extremum-seeking, by default 0.01.
 
     Returns
     -------
     Xopt
         Optimizer instance containing all collected evaluations.
     """
-    run_start_time = time.time()
-    if dump_location is None:
-        dump_location = "."
-
     # env.set_screen(to_screen_name)
 
     logger.info(f"Starting automatic alignment for screen: {to_screen_name}")
-    logger.info(
-        "Alignment ES config: n_steps=%d target_value=%s region_fraction=%s dump_location=%s",
-        n_steps,
-        target_value,
-        region_fraction,
-        dump_location,
-    )
     # if just transporting beam to OTRDG02, use all BPMs except 470 and 520
     pvs = alignment_pvs[to_screen_name]["corrector_pvs"]
     bpm_observables = alignment_pvs[to_screen_name]["bpms"]
-    logger.info(
-        "Using %d correctors and %d BPM observables for %s.",
-        len(pvs),
-        len(bpm_observables),
-        to_screen_name,
-    )
 
     temp_vocs = VOCS(variables=env.get_bounds(pvs), observables=[])
     local_region = get_local_region(
-        env.get_variables(temp_vocs.variables.keys()), temp_vocs, region_fraction
+        temp_vocs, env.get_variables(temp_vocs.variables.keys()), region_fraction
     )
 
     def eval(inputs):
@@ -156,7 +148,7 @@ def run_automatic_alignment(
 
     generator = ExtremumSeekingGenerator(
         vocs=vocs,
-        oscillation_size=0.01,
+        oscillation_size=oscillation_size,
     )
     evaluator = Evaluator(function=eval)
 
@@ -175,12 +167,12 @@ def run_automatic_alignment(
     X.evaluate_data(env.get_variables(vocs.variables.keys()))
 
     if X.data.min()["norm"] < target_value:
-        logger.info(
-            "Converged immediately with norm=%s in %.2f s.",
-            X.data.min()["norm"],
-            time.time() - run_start_time,
-        )
+        logger.info("converged")
         return X
+
+    random_sample_region = get_local_region(
+        X.vocs, env.get_variables(X.vocs.variables.keys()), fraction=0.1
+    )
 
     try:
         for n in range(n_steps):
@@ -199,12 +191,5 @@ def run_automatic_alignment(
             metric_name="norm",
             context="extremum-seeking alignment finalization",
         )
-
-    logger.info(
-        "Automatic alignment (ES) complete: evaluations=%d best_norm=%s duration=%.2f s",
-        len(X.data),
-        X.data["norm"].min() if "norm" in X.data else "N/A",
-        time.time() - run_start_time,
-    )
 
     return X

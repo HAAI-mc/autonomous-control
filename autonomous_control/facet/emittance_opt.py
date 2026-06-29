@@ -11,13 +11,16 @@ from xopt import Xopt, Evaluator, VOCS
 from xopt.generators.bayesian import ExpectedImprovementGenerator
 
 
-from .optimization_utils import restore_on_error, safe_evaluate_best_point
+from autonomous_control.facet.optimization_utils import (
+    restore_on_error,
+    safe_evaluate_best_point,
+)
 
 logger = logging.getLogger("injector_emittance_opt")
 
 
 @restore_on_error(context="emittance_opt")
-def optimize_injector_emittance(env, dump_location=None, *, n_steps=3):
+def optimize_injector_emittance(env, dump_location, variables, n_steps=3):
     """Run Bayesian optimization for injector emittance.
 
     Parameters
@@ -27,29 +30,18 @@ def optimize_injector_emittance(env, dump_location=None, *, n_steps=3):
         interfaces used by this routine.
     dump_location : str or pathlib.Path
         Requested output location for optimization artifacts.
-
-    n_steps : int, optional
-        Number of Bayesian optimization steps.
-
+    variables : dict, optional
+        Mapping of variable names to bounds for optimization.
     Returns
     -------
     Xopt
         Configured and executed Xopt instance containing optimization data.
     """
-    run_start_time = time.time()
-
-    if dump_location is None:
-        dump_location = "."
 
     # TODO: check data folder exists
 
     logger.info("Starting injector emittance optimization.")
-    logger.info(
-        "Injector emittance config: n_steps=%d dump_location=%s",
-        n_steps,
-        dump_location,
-    )
-    env.emittance_config_fname = "/home/fphysics/rroussel/e331/Badger-Resources/facet/plugins/environments/inj_emit/emittance_measurement_configs/PROF10571.yaml"
+    env.emittance_config_fname = f"{os.environ['BADGER_RESOURCES']}/facet/plugins/environments/inj_emit/emittance_measurement_configs/PR10571.yaml"
     env.save_directory = os.path.join(dump_location, "data/")
     logger.debug(
         "Configured emittance optimization with config=%s save_directory=%s dump_location=%s",
@@ -86,11 +78,7 @@ def optimize_injector_emittance(env, dump_location=None, *, n_steps=3):
 
     vocs = VOCS(
         variables={
-            "SOLN:IN10:121:BCTRL": [0.39, 0.41],
-            "QUAD:IN10:121:BCTRL": [-0.008, 0.0085],
-            "QUAD:IN10:122:BCTRL": [-0.008, 0.0085],
-            # "QUAD:IN10:361:BCTRL": [-3, -2.5],
-            # "QUAD:IN10:371:BCTRL": [2.5, 3],
+            **variables,
         },
         objectives={"emittance_mean": "MINIMIZE"},
         constraints={"min_joint_bmag": ["LESS_THAN", 1.5]},
@@ -126,10 +114,5 @@ def optimize_injector_emittance(env, dump_location=None, *, n_steps=3):
     )
 
     logger.info("Completed injector emittance optimization.")
-    logger.info(
-        "Injector emittance summary: evaluations=%d duration=%.2f s",
-        len(X.data),
-        time.time() - run_start_time,
-    )
 
     return X

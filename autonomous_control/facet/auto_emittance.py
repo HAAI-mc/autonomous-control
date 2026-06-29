@@ -2,10 +2,10 @@ import logging
 import os
 import time
 
-try:
-    from facet.optimization_utils import merge_config, restore_on_error
-except ImportError:
-    from optimization_utils import merge_config, restore_on_error
+from autonomous_control.facet.optimization_utils import (
+    merge_config,
+    restore_on_error,
+)
 
 logger = logging.getLogger("auto_emittance")
 
@@ -13,15 +13,14 @@ logger = logging.getLogger("auto_emittance")
 @restore_on_error(context="auto_emittance")
 def run_automatic_emittance(
     env,
-    dump_location=None,
-    *,
-    screen_name="PROF10571",
+    dump_location,
+    screen_name,
     config_directory=None,
     screen_settle_time=2.0,
     screens=None,
 ):
     """
-    Run an automatic emittance measurement for the specified screen using 
+    Run an automatic emittance measurement for the specified screen using
     the quadrupole scan method defined in the environment's emittance configuration.
 
     Inserts the requested screen, configures the emittance measurement object
@@ -32,12 +31,11 @@ def run_automatic_emittance(
     env : Any
         Control environment with screen insertion, emittance configuration,
         and measurement interfaces.
-    dump_location : str or pathlib.Path, optional
+    dump_location : str or pathlib.Path
         Directory where environment-managed outputs should be saved.
-        When omitted, the environment's existing save directory is used.
-    screen_name : str, optional
+    screen_name : str
         Name of the screen device to use. Supported values are
-        ``"PROF10571"`` and ``"PROF10711"``.
+        ``"PR10571"`` and ``"PR10711"``.
     config_directory : str or pathlib.Path, optional
         Directory containing per-screen emittance configuration YAML files.
         Defaults to the FACET badger resources emittance config directory.
@@ -62,19 +60,18 @@ def run_automatic_emittance(
         config_directory = f"{os.environ['BADGER_RESOURCES']}/facet/plugins/environments/inj_emit/emittance_measurement_configs/"
 
     default_screens = {
-        "PROF10571": {
-            "targets": {"PROF10571": 1},
-            "config_file": "PROF10571.yaml",
+        "PR10571": {
+            "targets": {"PR10571": 1},
+            "config_file": "PR10571.yaml",
         },
-        "PROF10711": {
-            "targets": {"PROF10571": 0, "PROF10711": 1},
-            "config_file": "PROF10711.yaml",
+        "PR10711": {
+            "targets": {"PR10571": 0, "PR10711": 1},
+            "config_file": "PR10711.yaml",
         },
     }
     screen_settings = merge_config(default_screens, screens)
 
-    if dump_location is not None:
-        env.save_directory = str(dump_location)
+    env.save_directory = str(dump_location)
 
     logger.info(f"Starting automatic emittance measurement on screen: {screen_name}")
 
@@ -84,6 +81,9 @@ def run_automatic_emittance(
 
     for name, target in screen_config["targets"].items():
         env.screens[name].target = target
+
+    # wait for screen to settle after changing targets
+    logger.info(f"Waiting for {screen_settle_time} seconds for screen to settle...")
     time.sleep(screen_settle_time)
     env.emittance_config_fname = os.path.join(
         config_directory, screen_config["config_file"]
