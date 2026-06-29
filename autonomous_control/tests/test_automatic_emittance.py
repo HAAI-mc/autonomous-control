@@ -41,7 +41,7 @@ class TestAutomaticEmittance:
         return environment
 
     def test_screen_measurement(self, env):
-        assert env.screens["PRR10571"].image.sum() > 0, (
+        assert env.screens["PR10571"].image.sum() > 0, (
             "Screen PR10571 should have a non-empty image"
         )
         assert env.screens["PR10711"].image.sum() > 0, (

@@ -30,6 +30,6 @@ def create_env():
 def reset_env(env):
     """Reset the FACET-II badger environment to a safe state for autonomous workflows."""
     env.tcav.mode_config = "STDBY"
-    env.screens["PROF10571"].target = 0
+    env.screens["PR10571"].target = 0
     env.screens["PR10711"].target = 0
     epics.caput("FARC:IN10:241:PNEUMATIC", 0)
