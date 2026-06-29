@@ -19,9 +19,8 @@ logger = logging.getLogger("auto_emittance")
 @restore_on_error(context="auto_emittance")
 def run_automatic_emittance(
     env,
+    screen_name,
     dump_location=None,
-    *,
-    screen_name="PR10571",
     config_directory=None,
     screen_settle_time=2.0,
     screens=None,
@@ -43,7 +42,7 @@ def run_automatic_emittance(
         When omitted, the environment's existing save directory is used.
     screen_name : str, optional
         Name of the screen device to use. Supported values are
-        ``"PROF10571"`` and ``"PR10711"``.
+        ``"PR10571"`` and ``"PR10711"``.
     config_directory : str or pathlib.Path, optional
         Directory containing per-screen emittance configuration YAML files.
         Defaults to the FACET badger resources emittance config directory.

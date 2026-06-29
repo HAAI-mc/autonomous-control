@@ -47,7 +47,7 @@ class TestAutomaticWorkflow:
         workflow = [
             {
                 "type": "measure_emittance",
-                "screen_name": "PROF10571",
+                "screen_name": "PR10571",
             },
             {
                 "type": "tcav_phasing",
