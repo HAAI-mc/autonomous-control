@@ -66,12 +66,11 @@ alignment_pvs = {
 @restore_on_error(context="alignment_opt_es")
 def run_automatic_alignment(
     env,
+    dump_location=".",
     to_screen_name="PR10571",
     n_steps=100,
-    old_data=None,
     target_value=1.0,
     region_fraction=0.15,
-    dump_location=".",
 ):
     """Run the extremum-seeking alignment optimization process.
 
@@ -80,19 +79,17 @@ def run_automatic_alignment(
     env : Any
         Control environment providing ``get_bounds``, ``get_variables``,
         and ``get_observables``.
+    dump_location : str or pathlib.Path
+        Directory for optimization dump files.
     to_screen_name : str, optional
         Screen name to align to, by default ``"PR10571"``.
     n_steps : int, optional
         Maximum number of extremum-seeking steps, by default 100.
-    old_data : pandas.DataFrame or None, optional
-        Previously collected data to seed the optimizer.
     target_value : float, optional
         BPM-norm convergence threshold, by default 1.0.
     region_fraction : float, optional
         Half-width of the search region as a fraction of variable range,
         by default 0.15.
-    dump_location : str or pathlib.Path, optional
-        Directory for optimization dump files, by default ``"."``.
 
     Returns
     -------

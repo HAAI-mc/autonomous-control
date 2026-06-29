@@ -268,9 +268,10 @@ class BaxGenerator(BayesianGenerator):
 def optimize_solenoid_alignment(
     env,
     dump_location=None,
-    *,
     initial_random_evaluations=2,
     n_steps=30,
+    mirror_range_fraction=0.01,
+    solenoid_range_fraction=0.03,
 ):
     """Run BAX optimization for solenoid alignment.
 
@@ -285,6 +286,10 @@ def optimize_solenoid_alignment(
         Number of random warm-start evaluations.
     n_steps : int, optional
         Number of BAX optimization iterations.
+    mirror_range_fraction : float, optional
+        Fractional +/- range for mirror adjustments.
+    solenoid_range_fraction : float, optional
+        Fractional +/- range for solenoid adjustments.
 
     Returns
     -------
@@ -353,13 +358,13 @@ def optimize_solenoid_alignment(
     init_settings = {var_name: epics.caget(var_name) for var_name in variable_names}
     variables = {
         var_name: sorted(
-            [0.99 * init_settings[var_name], 1.01 * init_settings[var_name]]
+            [init_settings[var_name] * (1 - mirror_range_fraction), init_settings[var_name] * (1 + mirror_range_fraction)]
         )
         for var_name in variable_names[:2]
     }
     variables["SOLN:IN10:121:BCTRL"] = [
-        0.97 * init_settings["SOLN:IN10:121:BCTRL"],
-        1.03 * init_settings["SOLN:IN10:121:BCTRL"],
+        init_settings["SOLN:IN10:121:BCTRL"] * (1 - solenoid_range_fraction),
+        init_settings["SOLN:IN10:121:BCTRL"] * (1 + solenoid_range_fraction),
     ]
     # construct vocs
     vocs = VOCS(

@@ -1,6 +1,10 @@
 # start to end sequential workflow for FACET-II
 - type: optimize_laser_steering
+  n_steps: 30
+  initial_random_evaluations: 10
 - type: optimize_alignment
+  n_steps: 100
+  region_fraction: 0.15
 - type: minimize_injector_emittance
   n_steps: 3
   screen: PR10571
