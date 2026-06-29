@@ -63,10 +63,9 @@ def run_automatic_workflow(
     env : Any, optional
         An existing FACET-II badger environment. If not provided, a new environment will be created.
     dump_location : str, optional
-        If provided, the path to an output directory where workflow steps may write
-        their own result artifacts. The directory will be created automatically if
-        needed. If not provided, step handlers will manage their own default output
-        locations.
+        If provided, the path to an output directory where the runner will write its own result artifacts
+        including a log file and a Xopt dump file that contains serialized Xopt objects from each workflow
+        step. If not provided files will be written to the current working directory.
     reset_env_after : bool, optional
         If True, the FACET-II badger environment will be reset to a safe state after all workflow steps have been executed. Default is True.
     logging_level : int, optional

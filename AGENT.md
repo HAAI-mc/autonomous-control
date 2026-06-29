@@ -236,4 +236,4 @@ YAML step example:
 - Unexpected keyword argument:
   - Ensure step keys match that step's supported parameters.
 - Runtime machine errors:
-  - The runner resets machine state before each run and can reset after run if `--reset_env_after` is provided.
+  - The runner can reset the machine state after run if `--reset_env_after` is provided.

@@ -28,7 +28,11 @@ def create_env():
 
 
 def reset_env(env):
-    """Reset the FACET-II badger environment to a safe state for autonomous workflows."""
+    """
+    Reset the FACET-II badger environment to a safe state for autonomous workflows.
+    This includes setting the TCAV to standby mode,
+    retracting screens, and removing the Faraday cup from the beam path.
+    """
     env.tcav.mode_config = "STDBY"
     env.screens["PR10571"].target = 0
     env.screens["PR10711"].target = 0
