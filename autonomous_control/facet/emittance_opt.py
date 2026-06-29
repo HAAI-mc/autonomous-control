@@ -47,7 +47,7 @@ def optimize_injector_emittance(
 
     logger.info("Starting injector emittance optimization.")
     env.emittance_config_fname = f"{os.environ['BADGER_RESOURCES']}/facet/plugins/environments/inj_emit/emittance_measurement_configs/PR10571.yaml"
-    output_directory = os.path.dirname(dump_location) if dump_location else "."
+    output_directory = (os.path.dirname(dump_location) or ".") if dump_location else "."
     env.save_directory = os.path.join(output_directory, "data/")
     logger.debug(
         "Configured emittance optimization with config=%s save_directory=%s dump_location=%s",
