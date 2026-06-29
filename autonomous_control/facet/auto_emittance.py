@@ -37,9 +37,8 @@ def run_automatic_emittance(
     env : Any
         Control environment with screen insertion, emittance configuration,
         and measurement interfaces.
-    dump_location : str or pathlib.Path, optional
+    dump_location : str or pathlib.Path
         Directory where environment-managed outputs should be saved.
-        When omitted, the environment's existing save directory is used.
     screen_name : str
         Name of the screen device to use. Supported values are
         ``"PR10571"`` and ``"PR10711"``.
@@ -78,10 +77,7 @@ def run_automatic_emittance(
     }
     screen_settings = merge_config(default_screens, screens)
 
-    if dump_location is not None:
-        env.save_directory = str(dump_location)
-    elif getattr(env, "save_directory", None) in (None, ""):
-        env.save_directory = "."
+    env.save_directory = str(dump_location)
 
     logger.info(f"Starting automatic emittance measurement on screen: {screen_name}")
 
