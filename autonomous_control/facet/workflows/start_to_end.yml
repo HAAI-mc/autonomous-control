@@ -7,7 +7,7 @@
   region_fraction: 0.15
 - type: minimize_injector_emittance
   n_steps: 3
-  screen: PR10571
+  # screen is fixed by the implementation; do not pass 'screen'
   variables:
     SOLN:IN10:121:BCTRL: [0.39, 0.41]
     QUAD:IN10:121:BCTRL: [-0.008, 0.0085]
