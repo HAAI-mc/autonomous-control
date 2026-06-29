@@ -2,7 +2,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 import time
 import logging
-import os
 import epics
 import traceback
 from tenacity import retry, stop_after_attempt, wait_fixed
@@ -41,9 +40,6 @@ def run_automatic_schottky_scan(
         },
         config,
     )
-    old_feedback_state = epics.caget("KLYS:LI10:31:SFB_PDIS")
-    old_charge_feedback_state = epics.caget("SIOC:SYS1:ML03:AO502")
-    old_fcup_state = epics.caget("FARC:IN10:241:PNEUMATIC")
 
     logging.info("inserting Faraday cup, interrupting feedbacks")
     epics.caput("KLYS:LI10:31:SFB_PDIS", 0)
@@ -96,6 +92,7 @@ def run_automatic_schottky_scan(
             vocs=vocs,
             generator=generator,
             evaluator=evaluator,
+            dump_file=dump_location,
         )
         logger.info("Created Schottky Xopt object.")
 

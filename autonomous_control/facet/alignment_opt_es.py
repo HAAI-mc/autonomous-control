@@ -6,7 +6,6 @@ import traceback
 import epics
 import time
 from ml_tto.errors import TransmissionError
-import os
 
 from xopt.vocs import (
     get_local_region,
@@ -66,7 +65,7 @@ alignment_pvs = {
 @restore_on_error(context="alignment_opt_es")
 def run_automatic_alignment(
     env,
-    dump_location=".",
+    dump_location=None,
     to_screen_name="PR10571",
     n_steps=100,
     target_value=1.0,
@@ -80,8 +79,8 @@ def run_automatic_alignment(
     env : Any
         Control environment providing ``get_bounds``, ``get_variables``,
         and ``get_observables``.
-    dump_location : str or pathlib.Path
-        Directory for optimization dump files.
+    dump_location : str or pathlib.Path, optional
+        Xopt dump file path, by default None.
     to_screen_name : str, optional
         Screen name to align to, by default ``"PR10571"``.
     n_steps : int, optional
@@ -93,7 +92,6 @@ def run_automatic_alignment(
         by default 0.15.
     oscillation_size : float, optional
         Size of the oscillation for extremum-seeking, by default 0.01.
-
     Returns
     -------
     Xopt
@@ -156,6 +154,7 @@ def run_automatic_alignment(
         vocs=vocs,
         generator=generator,
         evaluator=evaluator,
+        dump_file=dump_location,
         strict=True,
     )
     logger.info("Created alignment Xopt object.")
@@ -167,10 +166,6 @@ def run_automatic_alignment(
     if X.data.min()["norm"] < target_value:
         logger.info("converged")
         return X
-
-    random_sample_region = get_local_region(
-        X.vocs, env.get_variables(X.vocs.variables.keys()), fraction=0.1
-    )
 
     try:
         for n in range(n_steps):

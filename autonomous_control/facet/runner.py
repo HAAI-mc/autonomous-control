@@ -159,7 +159,7 @@ def run_automatic_workflow(
 
         step_start = time.time()
         try:
-            step_result = step_handler(env, dump_location, **step_kwargs)
+            step_result = step_handler(env, **step_kwargs)
         except Exception:
             logging.exception(
                 "Workflow step failed: %s (step %d/%d) after %.2f s",

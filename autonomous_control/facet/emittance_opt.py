@@ -22,8 +22,8 @@ logger = logging.getLogger("injector_emittance_opt")
 @restore_on_error(context="emittance_opt")
 def optimize_injector_emittance(
     env,
-    dump_location,
     variables,
+    dump_location=None,
     n_steps=3,
 ):
     """Run Bayesian optimization for injector emittance.
@@ -33,9 +33,9 @@ def optimize_injector_emittance(
     env : Any
         Injector control environment that provides variable and observable
         interfaces used by this routine.
-    dump_location : str or pathlib.Path
-        Requested output location for optimization artifacts.
-    variables : dict, optional
+    dump_location : str or pathlib.Path, optional
+        Xopt dump file path.
+    variables : dict
         Mapping of variable names to bounds for optimization.
     Returns
     -------
@@ -47,7 +47,8 @@ def optimize_injector_emittance(
 
     logger.info("Starting injector emittance optimization.")
     env.emittance_config_fname = f"{os.environ['BADGER_RESOURCES']}/facet/plugins/environments/inj_emit/emittance_measurement_configs/PR10571.yaml"
-    env.save_directory = os.path.join(dump_location, "data/")
+    output_directory = os.path.dirname(dump_location) if dump_location else "."
+    env.save_directory = os.path.join(output_directory, "data/")
     logger.debug(
         "Configured emittance optimization with config=%s save_directory=%s dump_location=%s",
         env.emittance_config_fname,
@@ -96,6 +97,7 @@ def optimize_injector_emittance(
         vocs=vocs,
         evaluator=evaluator,
         generator=generator,
+        dump_file=dump_location,
     )
     logger.debug("Created Xopt object.")
 

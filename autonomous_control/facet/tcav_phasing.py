@@ -4,7 +4,6 @@ This module provides a model-based controller that tunes TCAV phase using
 Bayesian optimization with transmission constraints.
 """
 
-import os
 import time
 import logging
 from typing import Any, Optional, Callable
@@ -321,13 +320,21 @@ class MLTCAVPhasing(BaseModel):
         # run optimization - if an error is raised, reset the scan values
         try:
             # set the TCAV amplitude to the desired value for optimization
-            set_tcav_amplitude_and_wait(self.tcav, self.tcav_on_amplitude, amplitude_tolerance=self.amplitude_tolerance)
+            set_tcav_amplitude_and_wait(
+                self.tcav,
+                self.tcav_on_amplitude,
+                amplitude_tolerance=self.amplitude_tolerance,
+            )
 
             # initial coarse scan
             initial_scan_values = np.linspace(
-                np.clip(start_phase - 5.0, self.max_scan_range[0], self.max_scan_range[1]),
-                np.clip(start_phase + 5.0, self.max_scan_range[0], self.max_scan_range[1]),
-                self.n_initial_points
+                np.clip(
+                    start_phase - 5.0, self.max_scan_range[0], self.max_scan_range[1]
+                ),
+                np.clip(
+                    start_phase + 5.0, self.max_scan_range[0], self.max_scan_range[1]
+                ),
+                self.n_initial_points,
             )
 
             # evaluate current point
@@ -357,17 +364,23 @@ class MLTCAVPhasing(BaseModel):
             logger.info(f"setting final phase to {final_phase}")
             logger.debug("Optimization data points collected: %s", len(self.X.data))
 
-            set_tcav_phase_and_wait(self.tcav, final_phase, phase_tolerance=self.phase_tolerance)
+            set_tcav_phase_and_wait(
+                self.tcav, final_phase, phase_tolerance=self.phase_tolerance
+            )
 
         except Exception:
             logger.exception(
                 "Error during TCAV optimization, resetting to original phase"
             )
-            set_tcav_phase_and_wait(self.tcav, start_phase, phase_tolerance=self.phase_tolerance)
+            set_tcav_phase_and_wait(
+                self.tcav, start_phase, phase_tolerance=self.phase_tolerance
+            )
             raise
 
         finally:
-            set_tcav_amplitude_and_wait(self.tcav, start_amp, amplitude_tolerance=self.amplitude_tolerance)
+            set_tcav_amplitude_and_wait(
+                self.tcav, start_amp, amplitude_tolerance=self.amplitude_tolerance
+            )
             logger.info("Restored original TCAV amplitude.")
             logger.info("TCAV phase optimization complete.")
 
@@ -395,6 +408,7 @@ class MLTCAVPhasing(BaseModel):
         return Xopt(
             evaluator=evaluator,
             generator=generator,
+            dump_file=self.dump_location,
         )
 
     def acquire_nominal_centroid(self) -> float:
