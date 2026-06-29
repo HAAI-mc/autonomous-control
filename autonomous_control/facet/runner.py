@@ -30,7 +30,7 @@ STEP_HANDLERS = {
 def run_automatic_workflow(
     workflow: list[dict],
     env: Any = None,
-    dump_location: str = None,
+    dump_location: str = ".",
     reset_env_after: bool = True,
     logging_level: int = logging.INFO,
 ):

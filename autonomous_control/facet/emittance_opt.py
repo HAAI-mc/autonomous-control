@@ -41,7 +41,7 @@ def optimize_injector_emittance(env, dump_location, variables, n_steps=3):
     # TODO: check data folder exists
 
     logger.info("Starting injector emittance optimization.")
-    env.emittance_config_fname = "/home/fphysics/rroussel/e331/Badger-Resources/facet/plugins/environments/inj_emit/emittance_measurement_configs/PROF10571.yaml"
+    env.emittance_config_fname = f"{os.environ['BADGER_RESOURCES']}/facet/plugins/environments/inj_emit/emittance_measurement_configs/PR10571.yaml"
     env.save_directory = os.path.join(dump_location, "data/")
     logger.debug(
         "Configured emittance optimization with config=%s save_directory=%s dump_location=%s",
