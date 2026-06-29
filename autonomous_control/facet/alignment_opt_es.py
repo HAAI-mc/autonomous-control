@@ -8,7 +8,7 @@ import time
 from ml_tto.errors import TransmissionError
 import os
 
-from autonomous_control.facet.optimization_utils import (
+from xopt.vocs import (
     get_local_region,
 )
 
@@ -108,7 +108,7 @@ def run_automatic_alignment(
 
     temp_vocs = VOCS(variables=env.get_bounds(pvs), observables=[])
     local_region = get_local_region(
-        env.get_variables(temp_vocs.variables.keys()), temp_vocs, region_fraction
+        temp_vocs, env.get_variables(temp_vocs.variables.keys()), region_fraction
     )
 
     def eval(inputs):
@@ -171,7 +171,7 @@ def run_automatic_alignment(
         return X
 
     random_sample_region = get_local_region(
-        env.get_variables(vocs.variables.keys()), X.vocs, fraction=0.1
+        X.vocs, env.get_variables(X.vocs.variables.keys()), fraction=0.1
     )
 
     try:
