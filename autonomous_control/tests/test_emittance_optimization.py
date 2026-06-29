@@ -46,5 +46,6 @@ class TestAutomaticEmittance:
             env,
             variables={"QUAD:IN10:511:BCTRL": [5.0, 6.0]},
             n_steps=1,
+            min_joint_bmag_constraint=2000,
         )
-        assert len(X.data) == 4
+        assert len(X.data) == 5

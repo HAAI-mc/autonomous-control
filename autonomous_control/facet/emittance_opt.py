@@ -25,6 +25,7 @@ def optimize_injector_emittance(
     variables,
     dump_location=None,
     n_steps=3,
+    min_joint_bmag_constraint=1.5,
 ):
     """Run Bayesian optimization for injector emittance.
 
@@ -37,6 +38,11 @@ def optimize_injector_emittance(
         Xopt dump file path.
     variables : dict
         Mapping of variable names to bounds for optimization.
+    n_steps : int, optional
+        Number of optimization steps to perform, by default 3.
+    min_joint_bmag_constraint : float, optional
+        Maximum allowed value for `min_joint_bmag` inside Xopt constraints, by default 1.5.
+
     Returns
     -------
     Xopt
@@ -88,7 +94,7 @@ def optimize_injector_emittance(
             **variables,
         },
         objectives={"emittance_mean": "MINIMIZE"},
-        constraints={"min_joint_bmag": ["LESS_THAN", 1.5]},
+        constraints={"min_joint_bmag": ["LESS_THAN", min_joint_bmag_constraint]},
     )
 
     evaluator = Evaluator(function=evaluate)
