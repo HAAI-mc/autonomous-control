@@ -211,3 +211,5 @@ __marimo__/
 *.png
 
 dev/*
+*.yaml
+*.yml

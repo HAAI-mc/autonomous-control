@@ -280,8 +280,8 @@ def optimize_solenoid_alignment(
     env : Any
         Injector control environment that provides variable and observable
         interfaces used by this routine.
-    dump_location : str or pathlib.Path
-        Requested output location for optimization artifacts.
+    dump_location : str or pathlib.Path, optional
+        Xopt dump file path.
     initial_random_evaluations : int, optional
         Number of random warm-start evaluations.
     n_steps : int, optional
@@ -298,8 +298,7 @@ def optimize_solenoid_alignment(
     """
     run_start_time = time.time()
 
-    if dump_location is None:
-        dump_location = "."
+    output_directory = os.path.dirname(dump_location) if dump_location else "."
 
     # TODO: check data folder exists
 
@@ -310,11 +309,12 @@ def optimize_solenoid_alignment(
         n_steps,
         dump_location,
     )
-    env.save_directory = os.path.join(dump_location, "data/")
+    env.save_directory = os.path.join(output_directory, "data/")
     logger.debug(
-        "Configured solenoid alignment optimization with save_directory=%s dump_location=%s",
+        "Configured solenoid alignment optimization with save_directory=%s dump_location=%s output_directory=%s",
         env.save_directory,
         dump_location,
+        output_directory,
     )
 
     def evaluate(inputs):
@@ -358,7 +358,10 @@ def optimize_solenoid_alignment(
     init_settings = {var_name: epics.caget(var_name) for var_name in variable_names}
     variables = {
         var_name: sorted(
-            [init_settings[var_name] * (1 - mirror_range_fraction), init_settings[var_name] * (1 + mirror_range_fraction)]
+            [
+                init_settings[var_name] * (1 - mirror_range_fraction),
+                init_settings[var_name] * (1 + mirror_range_fraction),
+            ]
         )
         for var_name in variable_names[:2]
     }
@@ -401,22 +404,26 @@ def optimize_solenoid_alignment(
     evaluator = Evaluator(function=evaluate)
 
     ts = int(time.time())
+
     # construct Xopt optimizer
     X = Xopt(
         vocs=vocs,
         evaluator=evaluator,
         generator=generator,
-        dump_file=os.path.join(dump_location, f"solenoid_alignment_opt_{ts}.yaml"),
+        dump_file=dump_location,
     )
-    logger.debug("Created Xopt object with dump file: %s", X.dump_file)
+    logger.debug("Created Xopt object.")
 
     # evaluate the current point and two random points
-    logger.info("Running initial evaluations (current + 2 random points).")
+    logger.info(
+        "Running initial evaluations (current + %d random points).",
+        initial_random_evaluations,
+    )
     X.evaluate_data(env.get_variables(X.vocs.variable_names))
     X.random_evaluate(initial_random_evaluations)
 
     for i in range(n_steps):
-        logger.debug("Running optimization step %d/5", i + 1)
+        logger.debug("Running optimization step %d/%d", i + 1, n_steps)
         X.step()
 
     mean_optimizer = DifferentialEvolution(
@@ -443,12 +450,12 @@ def optimize_solenoid_alignment(
         result_keys=["objective", "misalignment_x", "misalignment_y"],
     )
 
-    fig.savefig(os.path.join(dump_location, f"solenoid_alignment_opt_{ts}.png"))
+    fig.savefig(os.path.join(output_directory, f"solenoid_alignment_opt_{ts}.png"))
     logger.info(
-        "Solenoid alignment summary: evaluations=%d yaml=%s png=%s duration=%.2f s",
+        "Solenoid alignment summary: evaluations=%d dump_file=%s png=%s duration=%.2f s",
         len(X.data),
-        X.dump_file,
-        os.path.join(dump_location, f"solenoid_alignment_opt_{ts}.png"),
+        dump_location,
+        os.path.join(output_directory, f"solenoid_alignment_opt_{ts}.png"),
         time.time() - run_start_time,
     )
     return X

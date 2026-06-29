@@ -4,7 +4,6 @@ This module performs a phase scan optimization to minimize transverse beam
 size as a proxy for energy spread.
 """
 
-import os
 import numpy as np
 import time
 import logging
@@ -23,7 +22,7 @@ logger = logging.getLogger("energy_spread_opt")
 
 
 @restore_on_error(context="e_spread_opt")
-def optimize_energy_spread(env, dump_location, config=None):
+def optimize_energy_spread(env, dump_location=None, config=None):
     """Optimize beam energy spread using klystron phase control.
 
     Parameters
@@ -31,8 +30,8 @@ def optimize_energy_spread(env, dump_location, config=None):
     env : Any
         Control environment with variable, observable, and beam profile
         measurement interfaces.
-    dump_location : str or pathlib.Path
-        Requested output location for optimization artifacts.
+    dump_location : str or pathlib.Path, optional
+        Xopt dump file path.
     config : dict, optional
         Configuration overrides, typically loaded from a config file. Supported
         keys include PV names, phase bounds, objectives, and optimization loop
@@ -171,13 +170,10 @@ def optimize_energy_spread(env, dump_location, config=None):
         vocs=vocs,
         evaluator=evaluator,
         generator=generator,
-        dump_file=os.path.join(
-            dump_location, f"energy_spread_minimization_{int(time.time())}.yaml"
-        ),
+        dump_file=dump_location,
     )
     logger.debug(
-        "Created Xopt object with dump file: %s (dump_location=%s)",
-        X.dump_file,
+        "Created Xopt object (dump_location=%s)",
         dump_location,
     )
 
