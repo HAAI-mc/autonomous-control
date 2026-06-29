@@ -13,8 +13,8 @@ logger = logging.getLogger("auto_emittance")
 @restore_on_error(context="auto_emittance")
 def run_automatic_emittance(
     env,
-    dump_location,
     screen_name,
+    dump_location=None,
     config_directory=None,
     screen_settle_time=2.0,
     screens=None,
@@ -31,11 +31,11 @@ def run_automatic_emittance(
     env : Any
         Control environment with screen insertion, emittance configuration,
         and measurement interfaces.
-    dump_location : str or pathlib.Path
-        Directory where environment-managed outputs should be saved.
     screen_name : str
         Name of the screen device to use. Supported values are
         ``"PR10571"`` and ``"PR10711"``.
+    dump_location : str or pathlib.Path, optional
+        Directory where environment-managed outputs should be saved.
     config_directory : str or pathlib.Path, optional
         Directory containing per-screen emittance configuration YAML files.
         Defaults to the FACET badger resources emittance config directory.
@@ -71,7 +71,10 @@ def run_automatic_emittance(
     }
     screen_settings = merge_config(default_screens, screens)
 
-    env.save_directory = str(dump_location)
+    if dump_location is not None:
+        env.save_directory = str(dump_location)
+    elif getattr(env, "save_directory", None) in (None, ""):
+        env.save_directory = "."
 
     logger.info(f"Starting automatic emittance measurement on screen: {screen_name}")
 
@@ -94,3 +97,28 @@ def run_automatic_emittance(
     emittance_result, fname = env.run_emittance_measurement()
     logger.info(f"Emittance measurement complete. Results saved to: {fname}")
     return emittance_result, fname, env._emittance_measurement_object.X
+
+
+def run_automatic_emittance_xopt(
+    env,
+    dump_location=None,
+    *,
+    screen_name,
+    config_directory=None,
+    screen_settle_time=2.0,
+    screens=None,
+):
+    """Run automatic emittance and return only the Xopt object.
+
+    This is a thin compatibility wrapper for workflow runners that expect each
+    top-level step callable to return a single Xopt instance.
+    """
+    _, _, xopt = run_automatic_emittance(
+        env,
+        screen_name=screen_name,
+        dump_location=dump_location,
+        config_directory=config_directory,
+        screen_settle_time=screen_settle_time,
+        screens=screens,
+    )
+    return xopt
