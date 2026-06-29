@@ -71,6 +71,7 @@ def run_automatic_alignment(
     n_steps=100,
     target_value=1.0,
     region_fraction=0.15,
+    oscillation_size=0.01,
 ):
     """Run the extremum-seeking alignment optimization process.
 
@@ -90,6 +91,8 @@ def run_automatic_alignment(
     region_fraction : float, optional
         Half-width of the search region as a fraction of variable range,
         by default 0.15.
+    oscillation_size : float, optional
+        Size of the oscillation for extremum-seeking, by default 0.01.
 
     Returns
     -------
@@ -145,7 +148,7 @@ def run_automatic_alignment(
 
     generator = ExtremumSeekingGenerator(
         vocs=vocs,
-        oscillation_size=0.01,
+        oscillation_size=oscillation_size,
     )
     evaluator = Evaluator(function=eval)
 
