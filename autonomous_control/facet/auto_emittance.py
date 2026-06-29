@@ -94,3 +94,27 @@ def run_automatic_emittance(
     emittance_result, fname = env.run_emittance_measurement()
     logger.info(f"Emittance measurement complete. Results saved to: {fname}")
     return emittance_result, fname, env._emittance_measurement_object.X
+
+
+def run_automatic_emittance_xopt(
+    env,
+    dump_location,
+    screen_name,
+    config_directory=None,
+    screen_settle_time=2.0,
+    screens=None,
+):
+    """Run automatic emittance and return only the Xopt object.
+
+    This is a thin compatibility wrapper for workflow runners that expect each
+    top-level step callable to return a single Xopt instance.
+    """
+    _, _, xopt = run_automatic_emittance(
+        env,
+        dump_location,
+        screen_name,
+        config_directory=config_directory,
+        screen_settle_time=screen_settle_time,
+        screens=screens,
+    )
+    return xopt

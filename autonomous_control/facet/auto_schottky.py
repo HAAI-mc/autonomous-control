@@ -19,7 +19,11 @@ logger = logging.getLogger("auto_schottky_scan")
 
 
 @restore_on_error(context="auto_schottky_scan")
-def run_automatic_schottky_scan(environment, dump_location=None, config=None):
+def run_automatic_schottky_scan(
+    environment,
+    dump_location=None,
+    config=None,
+):
 
     settings = merge_config(
         {
@@ -92,12 +96,8 @@ def run_automatic_schottky_scan(environment, dump_location=None, config=None):
             vocs=vocs,
             generator=generator,
             evaluator=evaluator,
-            dump_file=os.path.join(
-                dump_location, f"schottky_scan_data_{int(time.time())}.yaml"
-            )
-            if dump_location
-            else None,
         )
+        logger.info("Created Schottky Xopt object.")
 
         logger.info("Starting automatic Schottky scan with Amortized BOED generator.")
         logger.info(

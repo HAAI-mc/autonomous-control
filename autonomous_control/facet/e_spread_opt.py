@@ -171,13 +171,9 @@ def optimize_energy_spread(env, dump_location, config=None):
         vocs=vocs,
         evaluator=evaluator,
         generator=generator,
-        dump_file=os.path.join(
-            dump_location, f"energy_spread_minimization_{int(time.time())}.yaml"
-        ),
     )
     logger.debug(
-        "Created Xopt object with dump file: %s (dump_location=%s)",
-        X.dump_file,
+        "Created Xopt object (dump_location=%s)",
         dump_location,
     )
 

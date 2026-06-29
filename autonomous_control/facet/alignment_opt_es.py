@@ -157,10 +157,8 @@ def run_automatic_alignment(
         generator=generator,
         evaluator=evaluator,
         strict=True,
-        dump_file=os.path.join(
-            dump_location, f"beam_steering_{to_screen_name}_{int(time.time())}.yaml"
-        ),
     )
+    logger.info("Created alignment Xopt object.")
 
     logger.info("Starting evaluation")
     # evaluate

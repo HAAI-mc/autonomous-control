@@ -20,7 +20,12 @@ logger = logging.getLogger("injector_emittance_opt")
 
 
 @restore_on_error(context="emittance_opt")
-def optimize_injector_emittance(env, dump_location, variables, n_steps=3):
+def optimize_injector_emittance(
+    env,
+    dump_location,
+    variables,
+    n_steps=3,
+):
     """Run Bayesian optimization for injector emittance.
 
     Parameters
@@ -91,11 +96,8 @@ def optimize_injector_emittance(env, dump_location, variables, n_steps=3):
         vocs=vocs,
         evaluator=evaluator,
         generator=generator,
-        dump_file=os.path.join(
-            dump_location, f"5d_emittance_opt_{int(time.time())}.yaml"
-        ),
     )
-    logger.debug("Created Xopt object with dump file: %s", X.dump_file)
+    logger.debug("Created Xopt object.")
 
     # evaluate the current point and two random points
     logger.info("Running initial evaluations (current + 2 random points).")

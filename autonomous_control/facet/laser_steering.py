@@ -401,22 +401,22 @@ def optimize_solenoid_alignment(
     evaluator = Evaluator(function=evaluate)
 
     ts = int(time.time())
+
     # construct Xopt optimizer
     X = Xopt(
         vocs=vocs,
         evaluator=evaluator,
         generator=generator,
-        dump_file=os.path.join(dump_location, f"solenoid_alignment_opt_{ts}.yaml"),
     )
-    logger.debug("Created Xopt object with dump file: %s", X.dump_file)
+    logger.debug("Created Xopt object.")
 
     # evaluate the current point and two random points
-    logger.info("Running initial evaluations (current + 2 random points).")
+    logger.info("Running initial evaluations (current + %d random points).", initial_random_evaluations)
     X.evaluate_data(env.get_variables(X.vocs.variable_names))
     X.random_evaluate(initial_random_evaluations)
 
     for i in range(n_steps):
-        logger.debug("Running optimization step %d/5", i + 1)
+        logger.debug("Running optimization step %d/%d", i + 1, n_steps)
         X.step()
 
     mean_optimizer = DifferentialEvolution(
@@ -445,9 +445,8 @@ def optimize_solenoid_alignment(
 
     fig.savefig(os.path.join(dump_location, f"solenoid_alignment_opt_{ts}.png"))
     logger.info(
-        "Solenoid alignment summary: evaluations=%d yaml=%s png=%s duration=%.2f s",
+        "Solenoid alignment summary: evaluations=%d png=%s duration=%.2f s",
         len(X.data),
-        X.dump_file,
         os.path.join(dump_location, f"solenoid_alignment_opt_{ts}.png"),
         time.time() - run_start_time,
     )

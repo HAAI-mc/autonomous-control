@@ -395,11 +395,6 @@ class MLTCAVPhasing(BaseModel):
         return Xopt(
             evaluator=evaluator,
             generator=generator,
-            dump_file=os.path.join(
-                self.dump_location, f"tcav_phasing_{int(time.time())}.yaml"
-            )
-            if self.dump_location
-            else None,
         )
 
     def acquire_nominal_centroid(self) -> float:
