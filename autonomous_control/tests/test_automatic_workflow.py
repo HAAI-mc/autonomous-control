@@ -15,8 +15,6 @@ class TestAutomaticWorkflow:
         environment.save_directory = "."
         environment.median_filter_size = None
         environment.min_beamsize_cutoff = 2000
-        environment.upstream_bpm_name = "BPM10371"
-        environment.downstream_bpm_name = "BPM10651"
 
         # remove PVs that are not supported by the VA
         for name in list(environment.variables.keys()):

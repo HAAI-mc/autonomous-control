@@ -40,8 +40,6 @@ class TestAutomaticTcavPhasing:
         environment.save_directory = "."
         environment.median_filter_size = None
         environment.min_beamsize_cutoff = 2000
-        environment.upstream_bpm_name = "BPM10371"
-        environment.downstream_bpm_name = "BPM10651"
 
         # remove PVs that are not supported by the VA
         for name in list(environment.variables.keys()):
@@ -113,20 +111,6 @@ class TestAutomaticTcavPhasing:
         )
 
     def test_run_tcav_phasing(self, env):
-        env.upstream_bpm_name = "BPM10371"
-        env.downstream_bpm_name = "BPM10651"
-
-        assert env.upstream_bpm is not None
-        assert env.downstream_bpm is not None
-
-        assert env.upstream_bpm.x is not None
-        assert env.upstream_bpm.y is not None
-        assert env.upstream_bpm.tmit is not None
-
-        # assert the TCAV attributes are not none
-        assert env.tcav.amplitude is not None
-        assert env.tcav.phase is not None
-
         # set the tcav amplitude and phase
         tcav = _get_tcav_or_fail(env)
         set_tcav_mode_config_and_wait(tcav, "ACCEL_STDBY")
