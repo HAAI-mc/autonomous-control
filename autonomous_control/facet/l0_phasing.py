@@ -78,7 +78,7 @@ def fast_phase_scan_l0(env, k, p0, pf, Nshots):
     sfb_control_pv = f"KLYS:LI10:{k}1:SFB_PDIS"
     sfb_pdes_pv = f"KLYS:LI10:{k}1:SFB_PDES"
     ffb_pdes_pv = f"KLYS:LI10:{k}1:PDES"
-    refpoc_pv = f"KLYS:LI10:{k}1:REFPOC"
+    refpoc_pv = f"ACCL:LI10:{k}1:REFPOC"
 
     buf = f2BeamSynchronousBuffer(
         EPICS_address_list=[
@@ -157,10 +157,9 @@ def fit_beam_phase(scandata):
     xmeas = scandata["x"]
     M_t = np.vstack((np.cos(phimeas), np.sin(phimeas), np.ones(phimeas.shape)))
     M = np.transpose(M_t)
-    pinv = np.linalg.inv(M_t @ M)
-    a = pinv @ M_t @ xmeas
-    Ameas = np.sign(a[0]) * np.sqrt(a[0] ** 2 + a[1] ** 2)
-    psimeas = np.arcsin(np.deg2rad(a[1] / Ameas))
+    a, res, rank, s = np.linalg.lstsq(M, xmeas)
+    Ameas   = np.sign(a[0]) * np.sqrt(a[0]**2 + a[1]**2)
+    psimeas = _wrapto180(np.degrees(np.arcsin(a[1]/Ameas)))
     scandata["psi_meas"] = _wrapto180(psimeas)
     scandata["poc_new"] = _wrapto180(scandata["poc_init"] + scandata["psi_meas"])
     scandata["A_meas"] = Ameas
@@ -170,7 +169,7 @@ def fit_beam_phase(scandata):
 
 def correct_phase_error(env, scandata):
     """adjust slow feedback REFPOC to correct measured phase error"""
-    addr = f"KLYS:LI10:{scandata['klys']}1:REFPOC"
+    addr = f"ACCL:LI10:{scandata['klys']}1:REFPOC"
     env.set_variables({addr: scandata["poc_new"]})
     logger.info(
         f"{addr} updated: {scandata['poc_init']: .3f} --> {scandata['poc_new']: .3f}"
