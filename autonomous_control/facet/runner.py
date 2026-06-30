@@ -14,7 +14,7 @@ from autonomous_control.facet.alignment_opt_es import run_automatic_alignment
 from autonomous_control.facet.e_spread_opt import optimize_energy_spread
 from autonomous_control.facet.emittance_opt import optimize_injector_emittance
 from autonomous_control.facet.tcav_phasing import run_automatic_tcav_phasing
-from autonomous_control.facet.create_env import create_env, reset_env
+from autonomous_control.facet.env_utils import create_env, reset_env
 
 STEP_HANDLERS = {
     "measure_emittance": run_automatic_emittance_xopt,

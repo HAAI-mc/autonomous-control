@@ -237,3 +237,6 @@ YAML step example:
   - Ensure step keys match that step's supported parameters.
 - Runtime machine errors:
   - The runner can reset the machine state after run if `--reset_env_after` is provided.
+
+## Capturing and restoring machine state
+Before running an autonomous workflow, it is a good idea to capture the current machine state using `autonomous_control.facet.env_utils.capture_env_state` and store the state (a Python dict) in memory. If something goes wrong with the autonomous workflow then you can restore the machine state by passing the state to `autonomous_control.facet.env_utils.restore_env_state`.

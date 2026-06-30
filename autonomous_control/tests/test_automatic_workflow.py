@@ -1,27 +1,16 @@
-import os
-import sys
 import pytest
 
-badger_resources = os.getenv("BADGER_RESOURCES")
-if badger_resources is None:
-    pytest.skip("BADGER_RESOURCES is not configured", allow_module_level=True)
-
-# add the path that contains the facet environment
-sys.path.insert(0, os.path.join(badger_resources, "facet"))
-
-# add the autonomous control directory to path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
-
+from autonomous_control.facet.env_utils import create_env
 from autonomous_control.facet.runner import run_automatic_workflow
 
-from plugins.environments.inj_emit import Environment
-from plugins.interfaces.epics import Interface
 
 
 class TestAutomaticWorkflow:
     @pytest.fixture
     def env(self):
-        environment = Environment(interface=Interface())
+        environment = create_env()
+
+        # testing config for VA
         environment.measure_background = False
         environment.save_directory = "."
         environment.median_filter_size = None

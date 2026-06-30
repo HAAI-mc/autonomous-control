@@ -1,19 +1,9 @@
-import os
-import sys
 import pytest
 
-# add the path that contains the facet environment
-sys.path.insert(0, os.path.join(os.environ["BADGER_RESOURCES"], "facet"))
-
-# add the autonomous control directory to path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
-
-from plugins.environments.inj_emit import Environment
-from plugins.interfaces.epics import Interface
+import logging
 
 from autonomous_control.facet.auto_emittance import run_automatic_emittance
-
-import logging
+from autonomous_control.facet.env_utils import create_env
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -21,7 +11,9 @@ logging.basicConfig(level=logging.DEBUG)
 class TestAutomaticEmittance:
     @pytest.fixture
     def env(self):
-        environment = Environment(interface=Interface())
+        environment = create_env()
+
+        # testing config for VA
         environment.measure_background = False
         environment.save_directory = "."
         environment.median_filter_size = None

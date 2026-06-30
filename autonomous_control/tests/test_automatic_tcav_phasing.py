@@ -1,18 +1,8 @@
-import os
-import sys
 import time
 import pytest
 import numpy as np
 
-# add the path that contains the facet environment
-sys.path.insert(0, os.path.join(os.environ["BADGER_RESOURCES"], "facet"))
-
-# add the autonomous control directory to path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
-
-from plugins.environments.inj_emit import Environment
-from plugins.interfaces.epics import Interface
-
+from autonomous_control.facet.env_utils import create_env
 from autonomous_control.facet.tcav_phasing import (
     MLTCAVPhasing,
     run_automatic_tcav_phasing,
@@ -43,7 +33,9 @@ def _get_tcav_or_fail(env):
 class TestAutomaticTcavPhasing:
     @pytest.fixture
     def env(self):
-        environment = Environment(interface=Interface())
+        environment = create_env()
+
+        # testing config for VA
         environment.measure_background = False
         environment.save_directory = "."
         environment.median_filter_size = None
