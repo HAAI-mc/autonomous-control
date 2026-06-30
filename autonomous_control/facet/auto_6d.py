@@ -17,13 +17,13 @@ logger = logging.getLogger("auto_6d")
 def run_automatic_6d_measurement(env, save_filename):
     """Run a full 6D emittance measurement sequence.
 
-    Performs quad scans on PROF10571 and PR10711 with the TCAV both off and
+    Performs quad scans on PR10571 and PR10711 with the TCAV both off and
     on, saving incremental results after each step.
 
     Sequence
     --------
-    1. Insert PROF10571, TCAV off  — quad scan.
-    2. Insert PROF10571, TCAV on   — quad scan.
+    1. Insert PR10571, TCAV off  — quad scan.
+    2. Insert PR10571, TCAV on   — quad scan.
     3. Swap to PR10711, TCAV off — quad scan.
     4. Swap to PR10711, TCAV on  — quad scan.
 
@@ -39,7 +39,7 @@ def run_automatic_6d_measurement(env, save_filename):
     Returns
     -------
     data : dict
-        Dictionary with keys ``"PROF10571_off"``, ``"PROF10571_on"``,
+        Dictionary with keys ``"PR10571_off"``, ``"PR10571_on"``,
         ``"PR10711_off"``, ``"PR10711_on"``; each value is a dict
         containing the serialized emittance result and captured environment
         variables.
@@ -55,13 +55,13 @@ def run_automatic_6d_measurement(env, save_filename):
     data = {}
 
     # run automatic emittance measurement with TCAV off
-    logger.info("running PROF10571 quad scan tcav off")
-    emittance_result_PROF10571_off, _, X = run_automatic_emittance(
+    logger.info("running PR10571 quad scan tcav off")
+    emittance_result_PR10571_off, _, X = run_automatic_emittance(
         env,
         dump_location=env.save_directory,
-        screen_name="PROF10571",
+        screen_name="PR10571",
     )
-    data["PROF10571_off"] = emittance_result_PROF10571_off.model_dump() | {
+    data["PR10571_off"] = emittance_result_PR10571_off.model_dump() | {
         "environment_variables": env.get_variables(env.variables.keys())
     }
     # save the results
@@ -73,21 +73,21 @@ def run_automatic_6d_measurement(env, save_filename):
     time.sleep(2.0)
 
     # run automatic emittance measurement with TCAV on
-    logger.info("running PROF10571 quad scan tcav on")
-    emittance_result_PROF10571_on, _, X = run_automatic_emittance(
+    logger.info("running PR10571 quad scan tcav on")
+    emittance_result_PR10571_on, _, X = run_automatic_emittance(
         env,
         dump_location=env.save_directory,
-        screen_name="PROF10571",
+        screen_name="PR10571",
     )
-    data["PROF10571_on"] = emittance_result_PROF10571_on.model_dump() | {
+    data["PR10571_on"] = emittance_result_PR10571_on.model_dump() | {
         "environment_variables": env.get_variables(env.variables.keys())
     }
     # save the results
     tracking_data = pd.concat([tracking_data, X.data], ignore_index=True)
     saver.dump(data, save_filename)
 
-    # remove PROF10571 and insert PR10711
-    env.screens["PROF10571"].target = 0
+    # remove PR10571 and insert PR10711
+    env.screens["PR10571"].target = 0
     env.screens["PR10711"].target = 1
 
     # turn off TCAV
