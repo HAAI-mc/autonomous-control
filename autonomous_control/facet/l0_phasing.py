@@ -4,6 +4,7 @@ from time import sleep
 from datetime import datetime
 import numpy as np
 from matplotlib import pyplot as plt
+from pydantic import BaseModel
 
 sys.path.append('/usr/local/facet/tools/python/')
 from F2_pytools.f2bsaBuffer import f2BeamSynchronousBuffer
@@ -21,7 +22,7 @@ def l0_phasing(
     pf = 15,
     Nshots = 100,
     makeplot=False,
-    ):
+    ) -> BaseModel:
     """
     Create and run the automatic L0 (10-4 and 10-8) phasing controller.
 
@@ -56,6 +57,8 @@ def l0_phasing(
         apply_correction = input(f"Measured psi = {scandata['psi_meas']}. Update REFPOC? [y/n]").lower() == 'y'
     if apply_correction:
         correct_phase_error(env, scandata)
+
+    return BaseModel({})
 
 
 def fast_phase_scan_l0(env, k, p0, pf, Nshots):
