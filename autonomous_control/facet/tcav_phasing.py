@@ -459,7 +459,6 @@ class MLTCAVPhasing(BaseModel):
 def tcav_phasing(
     env,
     dump_location=None,
-    *,
     tcav_on_amplitude=0.3,
     n_measurement_shots=1,
     amplitude_tolerance=1e-3,
@@ -469,6 +468,8 @@ def tcav_phasing(
     name="automatic_phase_scan",
     max_scan_range=None,
     min_transmission=0.4,
+    upstream_bpm_name="BPM10371",
+    downstream_bpm_name="BPM10651",
     verbose=False,
 ):
     """Create and run the automatic TCAV phasing controller.
@@ -500,6 +501,10 @@ def tcav_phasing(
         Minimum transmission constraint.
     verbose : bool, optional
         Verbosity flag for the phasing controller.
+    upstream_bpm_name : str, optional
+        Name of the upstream BPM for transmission measurement. Defaults to ``"BPM10371"``.
+    downstream_bpm_name : str, optional
+        Name of the downstream BPM for transmission measurement. Defaults to ``"BPM10651"``.
 
     Returns
     -------
@@ -524,6 +529,10 @@ def tcav_phasing(
 
     def eval_callback(inputs):
         return env._evaluate_callback(inputs, None)
+
+    # set upstream and downstream BPMs for transmission measurement
+    env.upstream_bpm_name = upstream_bpm_name
+    env.downstream_bpm_name = downstream_bpm_name
 
     phaser = MLTCAVPhasing(
         bpm=env.downstream_bpm,
@@ -555,5 +564,3 @@ def tcav_phasing(
     )
 
     return X
-
-

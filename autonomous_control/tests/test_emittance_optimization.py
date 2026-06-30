@@ -22,7 +22,6 @@ class TestAutomaticEmittance:
         environment.n_iterations = 1
         environment.n_interpolate_points = 1
 
-
         # remove PVs that are not supported by the VA
         for name in list(environment.variables.keys()):
             if (
