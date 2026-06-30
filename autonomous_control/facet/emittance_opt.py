@@ -127,5 +127,3 @@ def minimize_injector_emittance(
     logger.info("Completed injector emittance optimization.")
 
     return X
-
-

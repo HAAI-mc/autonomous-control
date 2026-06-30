@@ -122,5 +122,3 @@ def measure_emittance(
         screens=screens,
     )
     return xopt
-
-

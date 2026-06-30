@@ -194,5 +194,3 @@ def minimize_energy_spread(env, dump_location=None, config=None):
     logger.info("Energy spread optimization finished.")
 
     return X
-
-

@@ -459,5 +459,3 @@ def optimize_laser_steering(
         time.time() - run_start_time,
     )
     return X
-
-
