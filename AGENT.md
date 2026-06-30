@@ -100,9 +100,14 @@ Purpose:
 
 Main parameters:
 - `to_screen_name` (optional, default `PR10571`)
+- `custom_corrector_pvs` (optional): list of corrector PVs; overrides default PVs for the selected screen
+- `custom_bpm_observable_pvs` (optional): list of BPM observable PVs; overrides default BPM observables for the selected screen
+- `custom_upstream_bpm_name` (optional): upstream BPM name used for transmission checks
+- `custom_downstream_bpm_name` (optional): downstream BPM name used for transmission checks
 - `n_steps` (optional)
 - `target_value` (optional): convergence threshold on BPM norm
 - `region_fraction` (optional): local search region size
+- `oscillation_size` (optional): extremum-seeking oscillation amplitude
 
 YAML step example:
 
@@ -110,6 +115,7 @@ YAML step example:
 - type: optimize_alignment
   to_screen_name: PR10571
   n_steps: 100
+  oscillation_size: 0.01
   region_fraction: 0.15
 ```
 
