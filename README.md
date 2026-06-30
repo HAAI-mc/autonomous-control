@@ -7,6 +7,10 @@ pip install -e .
 ```
 in the origin directory.
 
+## Setup
+This package requires the environment variable `BADGER_RESOURCES` which points to the location of badger environments on the local machine.
+For example, on facet ACR servers this should point to `/home/fphysics/badger/resources/`
+
 ## Usage
 See AGENT.md for a usage guide via CLI.
 
