@@ -99,7 +99,7 @@ def run_automatic_emittance(
     return emittance_result, fname, env._emittance_measurement_object.X
 
 
-def run_automatic_emittance_xopt(
+def measure_emittance(
     env,
     dump_location=None,
     *,
@@ -122,3 +122,5 @@ def run_automatic_emittance_xopt(
         screens=screens,
     )
     return xopt
+
+

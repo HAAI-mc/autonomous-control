@@ -22,7 +22,7 @@ logger = logging.getLogger("energy_spread_opt")
 
 
 @restore_on_error(context="e_spread_opt")
-def optimize_energy_spread(env, dump_location=None, config=None):
+def minimize_energy_spread(env, dump_location=None, config=None):
     """Optimize beam energy spread using klystron phase control.
 
     Parameters
@@ -194,3 +194,5 @@ def optimize_energy_spread(env, dump_location=None, config=None):
     logger.info("Energy spread optimization finished.")
 
     return X
+
+

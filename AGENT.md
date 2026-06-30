@@ -23,14 +23,15 @@ General shape:
   param_c: value
 ```
 
-Supported `type` values:
-- `measure_emittance`
-- `optimize_schottky`
-- `optimize_alignment`
-- `minimize_energy_spread`
-- `minimize_injector_emittance`
-- `tcav_phasing`
-- `optimize_laser_steering`
+Supported `type` values (each maps 1:1 to a top-level callable with the same name):
+- `measure_emittance` -> `autonomous_control.facet.auto_emittance.measure_emittance`
+- `optimize_schottky` -> `autonomous_control.facet.auto_schottky.optimize_schottky`
+- `optimize_alignment` -> `autonomous_control.facet.alignment_opt_es.optimize_alignment`
+- `minimize_energy_spread` -> `autonomous_control.facet.e_spread_opt.minimize_energy_spread`
+- `minimize_injector_emittance` -> `autonomous_control.facet.emittance_opt.minimize_injector_emittance`
+- `tcav_phasing` -> `autonomous_control.facet.tcav_phasing.tcav_phasing`
+- `optimize_laser_steering` -> `autonomous_control.facet.laser_steering.optimize_laser_steering`
+
 
 ## How To Run A YAML Workflow
 

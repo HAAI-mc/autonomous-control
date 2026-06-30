@@ -5,7 +5,7 @@ import numpy as np
 from autonomous_control.facet.env_utils import create_env
 from autonomous_control.facet.tcav_phasing import (
     MLTCAVPhasing,
-    run_automatic_tcav_phasing,
+    tcav_phasing,
     set_tcav_amplitude_and_wait,
     set_tcav_mode_config_and_wait,
     set_tcav_phase_and_wait,
@@ -135,7 +135,7 @@ class TestAutomaticTcavPhasing:
 
         time.sleep(5.0)  # wait for the VA to settle after changing the TCAV settings
 
-        X = run_automatic_tcav_phasing(
+        X = tcav_phasing(
             env,
             max_scan_range=[-10, 10],
             n_iterations=3,

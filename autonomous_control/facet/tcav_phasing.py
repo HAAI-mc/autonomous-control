@@ -456,7 +456,7 @@ class MLTCAVPhasing(BaseModel):
 
 
 @restore_on_error(context="tcav_phasing")
-def run_automatic_tcav_phasing(
+def tcav_phasing(
     env,
     dump_location=None,
     *,
@@ -555,3 +555,5 @@ def run_automatic_tcav_phasing(
     )
 
     return X
+
+

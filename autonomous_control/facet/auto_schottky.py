@@ -18,7 +18,7 @@ logger = logging.getLogger("auto_schottky_scan")
 
 
 @restore_on_error(context="auto_schottky_scan")
-def run_automatic_schottky_scan(
+def optimize_schottky(
     environment,
     dump_location=None,
     config=None,
@@ -202,3 +202,5 @@ def run_automatic_schottky_scan(
 
     logger.info("Automatic Schottky scan complete.")
     return X
+
+

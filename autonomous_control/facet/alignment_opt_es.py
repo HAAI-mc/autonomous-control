@@ -63,7 +63,7 @@ alignment_pvs = {
 
 
 @restore_on_error(context="alignment_opt_es")
-def run_automatic_alignment(
+def optimize_alignment(
     env,
     dump_location=None,
     to_screen_name="PR10571",
@@ -186,3 +186,5 @@ def run_automatic_alignment(
         )
 
     return X
+
+

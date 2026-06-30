@@ -327,7 +327,7 @@ def get_results(X, grid_steps, settings):
         The number of initial grid steps before BOED sampling begins.
     settings : dict
         The settings dictionary containing configuration parameters. See
-        `run_automatic_schottky_scan()` for expected keys.
+        `optimize_schottky()` for expected keys.
 
     Returns
     -------

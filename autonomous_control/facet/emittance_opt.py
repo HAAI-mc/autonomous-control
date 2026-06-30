@@ -20,7 +20,7 @@ logger = logging.getLogger("injector_emittance_opt")
 
 
 @restore_on_error(context="emittance_opt")
-def optimize_injector_emittance(
+def minimize_injector_emittance(
     env,
     variables,
     dump_location=None,
@@ -127,3 +127,5 @@ def optimize_injector_emittance(
     logger.info("Completed injector emittance optimization.")
 
     return X
+
+

@@ -1,7 +1,7 @@
 import pytest
 
 from autonomous_control.facet.env_utils import create_env
-from autonomous_control.facet.emittance_opt import optimize_injector_emittance
+from autonomous_control.facet.emittance_opt import minimize_injector_emittance
 
 import logging
 
@@ -37,7 +37,7 @@ class TestAutomaticEmittance:
         return environment
 
     def test_run_emittance_opt_on_va(self, env):
-        X = optimize_injector_emittance(
+        X = minimize_injector_emittance(
             env,
             variables={"QUAD:IN10:511:BCTRL": [5.0, 6.0]},
             n_steps=1,

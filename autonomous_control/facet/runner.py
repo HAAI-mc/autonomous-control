@@ -7,23 +7,24 @@ import yaml
 import argparse
 
 
-from autonomous_control.facet.laser_steering import optimize_solenoid_alignment
-from autonomous_control.facet.auto_emittance import run_automatic_emittance_xopt
-from autonomous_control.facet.auto_schottky import run_automatic_schottky_scan
-from autonomous_control.facet.alignment_opt_es import run_automatic_alignment
-from autonomous_control.facet.e_spread_opt import optimize_energy_spread
-from autonomous_control.facet.emittance_opt import optimize_injector_emittance
-from autonomous_control.facet.tcav_phasing import run_automatic_tcav_phasing
+from autonomous_control.facet.laser_steering import optimize_laser_steering
+from autonomous_control.facet.auto_emittance import measure_emittance
+from autonomous_control.facet.auto_schottky import optimize_schottky
+from autonomous_control.facet.alignment_opt_es import optimize_alignment
+from autonomous_control.facet.e_spread_opt import minimize_energy_spread
+from autonomous_control.facet.emittance_opt import minimize_injector_emittance
+from autonomous_control.facet.tcav_phasing import tcav_phasing
 from autonomous_control.facet.env_utils import create_env, reset_env
 
+
 STEP_HANDLERS = {
-    "measure_emittance": run_automatic_emittance_xopt,
-    "optimize_schottky": run_automatic_schottky_scan,
-    "optimize_alignment": run_automatic_alignment,
-    "minimize_energy_spread": optimize_energy_spread,
-    "minimize_injector_emittance": optimize_injector_emittance,
-    "tcav_phasing": run_automatic_tcav_phasing,
-    "optimize_laser_steering": optimize_solenoid_alignment,
+    "measure_emittance": measure_emittance,
+    "optimize_schottky": optimize_schottky,
+    "optimize_alignment": optimize_alignment,
+    "minimize_energy_spread": minimize_energy_spread,
+    "minimize_injector_emittance": minimize_injector_emittance,
+    "tcav_phasing": tcav_phasing,
+    "optimize_laser_steering": optimize_laser_steering,
 }
 
 
@@ -72,6 +73,11 @@ def run_automatic_workflow(
         The logging level to use for the workflow execution. Default is logging.INFO.
 
     """
+    ts = int(time.time())
+    log_file = f"automatic_workflow_{ts}.log"
+    workflow_start_time = time.time()
+    force_reconfigure_logging = "PYTEST_CURRENT_TEST" in os.environ
+
     logging.basicConfig(
         level=logging_level,
         handlers=[
@@ -92,11 +98,6 @@ def run_automatic_workflow(
         logging.getLevelName(logging_level),
         log_file,
     )
-
-    ts = int(time.time())
-    log_file = f"automatic_workflow_{ts}.log"
-    workflow_start_time = time.time()
-    force_reconfigure_logging = "PYTEST_CURRENT_TEST" in os.environ
 
     os.makedirs(dump_location, exist_ok=True)
     logging.info("Ensured workflow output directory exists: %s", dump_location)

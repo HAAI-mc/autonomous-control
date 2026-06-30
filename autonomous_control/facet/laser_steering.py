@@ -265,7 +265,7 @@ class BaxGenerator(BayesianGenerator):
         return eig
 
 
-def optimize_solenoid_alignment(
+def optimize_laser_steering(
     env,
     dump_location=None,
     initial_random_evaluations=2,
@@ -459,3 +459,5 @@ def optimize_solenoid_alignment(
         time.time() - run_start_time,
     )
     return X
+
+
