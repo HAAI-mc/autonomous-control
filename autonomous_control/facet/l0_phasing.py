@@ -43,7 +43,8 @@ def l0_phasing(
 
     Returns
     -------
-    None
+    BaseModel
+        Empty BaseModel object, can be extended to return scan results in the future.
     """
     scandata = fast_phase_scan_l0(env=env, k=k, p0=p0, pf=pf, Nshots=Nshots)
     scandata = fit_beam_phase(scandata)
