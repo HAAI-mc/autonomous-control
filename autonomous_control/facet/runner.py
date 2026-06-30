@@ -14,6 +14,7 @@ from autonomous_control.facet.alignment_opt_es import optimize_alignment
 from autonomous_control.facet.e_spread_opt import minimize_energy_spread
 from autonomous_control.facet.emittance_opt import minimize_injector_emittance
 from autonomous_control.facet.tcav_phasing import tcav_phasing
+from autonomous_control.facet.l0_phasing import l0_phasing
 from autonomous_control.facet.env_utils import create_env, reset_env
 
 
@@ -24,6 +25,7 @@ STEP_HANDLERS = {
     "minimize_energy_spread": minimize_energy_spread,
     "minimize_injector_emittance": minimize_injector_emittance,
     "tcav_phasing": tcav_phasing,
+    "l0_phasing": l0_phasing,
     "optimize_laser_steering": optimize_laser_steering,
 }
 

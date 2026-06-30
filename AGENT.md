@@ -30,6 +30,7 @@ Supported `type` values (each maps 1:1 to a top-level callable with the same nam
 - `minimize_energy_spread` -> `autonomous_control.facet.e_spread_opt.minimize_energy_spread`
 - `minimize_injector_emittance` -> `autonomous_control.facet.emittance_opt.minimize_injector_emittance`
 - `tcav_phasing` -> `autonomous_control.facet.tcav_phasing.tcav_phasing`
+- `l0_phasing` -> `autonomous_control.facet.l0_phasing.l0_phasing`
 - `optimize_laser_steering` -> `autonomous_control.facet.laser_steering.optimize_laser_steering`
 
 
@@ -100,14 +101,9 @@ Purpose:
 
 Main parameters:
 - `to_screen_name` (optional, default `PR10571`)
-- `custom_corrector_pvs` (optional): list of corrector PVs; overrides default PVs for the selected screen
-- `custom_bpm_observable_pvs` (optional): list of BPM observable PVs; overrides default BPM observables for the selected screen
-- `custom_upstream_bpm_name` (optional): upstream BPM name used for transmission checks
-- `custom_downstream_bpm_name` (optional): downstream BPM name used for transmission checks
 - `n_steps` (optional)
 - `target_value` (optional): convergence threshold on BPM norm
 - `region_fraction` (optional): local search region size
-- `oscillation_size` (optional): extremum-seeking oscillation amplitude
 
 YAML step example:
 
@@ -115,7 +111,6 @@ YAML step example:
 - type: optimize_alignment
   to_screen_name: PR10571
   n_steps: 100
-  oscillation_size: 0.01
   region_fraction: 0.15
 ```
 
@@ -188,7 +183,29 @@ YAML step example:
   tcav_on_amplitude: 0.3
 ```
 
-### 7) `optimize_laser_steering`
+### 7) `l0_phasing`
+Purpose:
+- Run automatic L0 (10-4 / 10-8) RF phasing using a fast BSA phase scan and sinusoidal fit.
+
+Main parameters:
+- `k` (optional, default `4`): klystron identifier, must be `4` or `8`
+- `p0` (optional, default `-15`): initial waveguide phase for the scan range
+- `pf` (optional, default `15`): final waveguide phase for the scan range
+- `Nshots` (optional, default `100`): number of beam-synchronous points to acquire
+- `makeplot` (optional, default `false`): display scan and fit plot
+
+YAML step example:
+
+```yaml
+- type: l0_phasing
+  k: 4
+  p0: -15
+  pf: 15
+  Nshots: 100
+  makeplot: false
+```
+
+### 8) `optimize_laser_steering`
 Purpose:
 - Run BAX-based solenoid alignment with laser mirror and solenoid control variables.
 
