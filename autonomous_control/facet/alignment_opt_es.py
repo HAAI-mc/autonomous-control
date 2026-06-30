@@ -3,7 +3,6 @@ from xopt import Xopt, Evaluator, VOCS
 from xopt.generators.sequential import ExtremumSeekingGenerator
 import numpy as np
 import traceback
-import epics
 import time
 from ml_tto.errors import TransmissionError
 
@@ -22,7 +21,7 @@ logger = logging.getLogger("auto_alignment")
 
 
 bpms = [371, 425, 511, 525, 581, 631, 651]
-alignment_pvs = {
+DEFAULT_ALIGNMENT_PVS = {
     "PR10571": {
         "corrector_pvs": [
             f"XCOR:IN10:{ele}:BCTRL" for ele in [221, 311, 381, 411, 491, 521, 641]
@@ -30,6 +29,8 @@ alignment_pvs = {
         + [f"YCOR:IN10:{ele}:BCTRL" for ele in [222, 312, 382, 412, 492, 522, 642]],
         "bpms": [f"BPMS:IN10:{ele}:X" for ele in bpms]
         + [f"BPMS:IN10:{ele}:Y" for ele in bpms],
+        "upstream_bpm": "BPM10371",
+        "downstream_bpm": "BPM10651",
     },
     "LI11312": {
         "corrector_pvs": [f"XCOR:IN10:{ele}:BCTRL" for ele in [721, 761]]
@@ -58,6 +59,8 @@ alignment_pvs = {
             "BPMS:LI11:358:Y",
             "BPMS:LI11:362:Y",
         ],
+        "upstream_bpm": "BPM10371",  # TODO: check if this is correct for LI11312
+        "downstream_bpm": "BPM10651",
     },
 }
 
@@ -67,12 +70,22 @@ def optimize_alignment(
     env,
     dump_location=None,
     to_screen_name="PR10571",
+    custom_corrector_pvs=None,
+    custom_bpm_observable_pvs=None,
+    custom_upstream_bpm_name=None,
+    custom_downstream_bpm_name=None,
     n_steps=100,
     target_value=1.0,
     region_fraction=0.15,
     oscillation_size=0.01,
 ):
     """Run the extremum-seeking alignment optimization process.
+
+    Users specify a default set of corrector PVs and BPM observable PVs for alignment by setting the
+    ``to_screen_name`` argument. If custom corrector PVs or BPM observable PVs are desired,
+    they can be specified with the ``custom_corrector_pvs``, ``custom_bpm_observable_pvs``,
+    ``custom_upstream_bpm``, and ``custom_downstream_bpm`` arguments and will override the default
+    PVs for the specified screen.
 
     Parameters
     ----------
@@ -83,6 +96,14 @@ def optimize_alignment(
         Xopt dump file path, by default None.
     to_screen_name : str, optional
         Screen name to align to, by default ``"PR10571"``.
+    custom_corrector_pvs : list of str, optional
+        Custom corrector PVs to use for alignment, by default None.
+    custom_bpm_observable_pvs : list of str, optional
+        Custom BPM observable PVs to use for alignment, by default None.
+    custom_upstream_bpm_name : str, optional
+        Custom upstream BPM PV to use for alignment, by default None.
+    custom_downstream_bpm_name : str, optional
+        Custom downstream BPM PV to use for alignment, by default None.
     n_steps : int, optional
         Maximum number of extremum-seeking steps, by default 100.
     target_value : float, optional
@@ -100,20 +121,57 @@ def optimize_alignment(
     # env.set_screen(to_screen_name)
 
     logger.info(f"Starting automatic alignment for screen: {to_screen_name}")
-    # if just transporting beam to OTRDG02, use all BPMs except 470 and 520
-    pvs = alignment_pvs[to_screen_name]["corrector_pvs"]
-    bpm_observables = alignment_pvs[to_screen_name]["bpms"]
+
+    # load in default corrector and BPM PVs for the specified screen
+    # override with custom PVs if provided
+    pvs = custom_corrector_pvs or DEFAULT_ALIGNMENT_PVS[to_screen_name]["corrector_pvs"]
+    bpm_observables = (
+        custom_bpm_observable_pvs or DEFAULT_ALIGNMENT_PVS[to_screen_name]["bpms"]
+    )
+    upstream_bpm_name = (
+        custom_upstream_bpm_name
+        or DEFAULT_ALIGNMENT_PVS[to_screen_name]["upstream_bpm"]
+    )
+    downstream_bpm_name = (
+        custom_downstream_bpm_name
+        or DEFAULT_ALIGNMENT_PVS[to_screen_name]["downstream_bpm"]
+    )
 
     temp_vocs = VOCS(variables=env.get_bounds(pvs), observables=[])
     local_region = get_local_region(
         temp_vocs, env.get_variables(temp_vocs.variables.keys()), region_fraction
     )
 
+    # set environment BPMs for transmission measurement
+    env.upstream_bpm_name = upstream_bpm_name
+    env.downstream_bpm_name = downstream_bpm_name
+
     def eval(inputs):
-        logger.debug("evaluating point")
+        logger.info(f"evaluating point: {inputs}")
         try:
-            epics.caput_many(list(inputs.keys()), list(inputs.values()))
+            env.set_variables(inputs)
             time.sleep(0.2)
+
+            # wait for readbacks to match setpoints within tolerance
+            readback_pvs = [key.replace("BCTRL", "BACT") for key in inputs.keys()]
+            for i in range(20):
+                if i == 19:
+                    logger.warning(
+                        "Readbacks did not match setpoints within tolerance after 20 attempts."
+                    )
+
+                readbacks = env.get_variables(readback_pvs)
+                if all(
+                    np.isclose(
+                        readbacks[key.replace("BCTRL", "BACT")],
+                        inputs[key],
+                        rtol=1e-6,
+                    )
+                    for key in inputs.keys()
+                ):
+                    break
+
+                time.sleep(0.2)
 
         except TransmissionError:
             logger.warning("Transmission error while setting variables.")
@@ -186,5 +244,3 @@ def optimize_alignment(
         )
 
     return X
-
-
