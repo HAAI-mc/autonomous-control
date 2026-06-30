@@ -529,7 +529,7 @@ def tcav_phasing(
 
     def eval_callback(inputs):
         return env._evaluate_callback(inputs, None)
-    
+
     # set upstream and downstream BPMs for transmission measurement
     env.upstream_bpm_name = upstream_bpm_name
     env.downstream_bpm_name = downstream_bpm_name
@@ -564,5 +564,3 @@ def tcav_phasing(
     )
 
     return X
-
-

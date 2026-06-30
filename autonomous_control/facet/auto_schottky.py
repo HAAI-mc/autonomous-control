@@ -202,5 +202,3 @@ def optimize_schottky(
 
     logger.info("Automatic Schottky scan complete.")
     return X
-
-

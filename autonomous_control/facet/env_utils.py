@@ -26,12 +26,14 @@ def create_env():
 
     return env
 
+
 def capture_env_state(env) -> dict:
     """
     Capture the current state of the FACET-II badger environment.
     """
     state = env.get_variables(env.variables.keys())
     return state
+
 
 def restore_env_state(env, state: dict):
     """
