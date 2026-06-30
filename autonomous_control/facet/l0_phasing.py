@@ -158,7 +158,7 @@ def fit_beam_phase(scandata):
     M_t = np.vstack((np.cos(phimeas), np.sin(phimeas), np.ones(phimeas.shape)))
     M = np.transpose(M_t)
     a, res, rank, s = np.linalg.lstsq(M, xmeas)
-    Ameas   = np.sign(a[0]) * np.sqrt(a[0]**2 + a[1]**2)
+    Ameas = np.sign(a[0]) * np.sqrt(a[0]**2 + a[1]**2)
     psimeas = _wrapto180(np.degrees(np.arcsin(a[1]/Ameas)))
     scandata["psi_meas"] = _wrapto180(psimeas)
     scandata["poc_new"] = _wrapto180(scandata["poc_init"] + scandata["psi_meas"])
