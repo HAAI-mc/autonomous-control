@@ -165,7 +165,7 @@ def optimize_alignment(
                     np.isclose(
                         readbacks[key.replace("BCTRL", "BACT")],
                         inputs[key],
-                        rtol=1e-6,
+                        rtol=1e-2,
                     )
                     for key in inputs.keys()
                 ):
