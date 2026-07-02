@@ -66,6 +66,14 @@ def minimize_energy_spread(env, dump_location=None, config=None):
         },
         config,
     )
+
+    screen_settings = {
+            "targets": {"PR10571": 0, "PR10711": 1},
+    }
+
+    for name, target in screen_settings["targets"].items():
+        env.screens[name].target = target
+    
     logger.info("Starting energy spread optimization.")
     dipole_correct_state = settings["dipole_correct_state"]
     dipole_current_state = env.get_variables([settings["dipole_current_pv"]])[
