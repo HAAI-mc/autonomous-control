@@ -5,6 +5,7 @@ import numpy as np
 import traceback
 import time
 from ml_tto.errors import TransmissionError
+import epics
 
 from xopt.vocs import (
     get_local_region,
@@ -149,29 +150,9 @@ def optimize_alignment(
     def eval(inputs):
         logger.info(f"evaluating point: {inputs}")
         try:
-            env.set_variables(inputs)
+            epics.caput_many(list(inputs.keys()),list(inputs.values()))
+            #env.set_variables(inputs)
             time.sleep(0.2)
-
-            # wait for readbacks to match setpoints within tolerance
-            readback_pvs = [key.replace("BCTRL", "BACT") for key in inputs.keys()]
-            for i in range(20):
-                if i == 19:
-                    logger.warning(
-                        "Readbacks did not match setpoints within tolerance after 20 attempts."
-                    )
-
-                readbacks = env.get_variables(readback_pvs)
-                if all(
-                    np.isclose(
-                        readbacks[key.replace("BCTRL", "BACT")],
-                        inputs[key],
-                        rtol=1e-2,
-                    )
-                    for key in inputs.keys()
-                ):
-                    break
-
-                time.sleep(0.2)
 
         except TransmissionError:
             logger.warning("Transmission error while setting variables.")
