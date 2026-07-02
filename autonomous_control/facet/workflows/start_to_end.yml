@@ -18,3 +18,5 @@
   n_iterations: 5
   n_initial_points: 5
   tcav_on_amplitude: 4.0
+  amplitude_tolerance: 0.01
+  phase_tolerance: 0.5
