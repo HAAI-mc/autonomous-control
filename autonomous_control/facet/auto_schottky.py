@@ -34,7 +34,7 @@ def optimize_schottky(
             "observable_name": "BPMS:IN10:221:TMIT",
             "variable_name": "control_phase",
             "max_measure": 100,  # total measurements (grid + BOED)
-            "visualize": True,  # whether to show diagnostic plots during BOED phase
+            "visualize": False,  # whether to show diagnostic plots during BOED phase
             "n_posterior_samples": 1000,  # number of posterior samples to draw for T0 histogram and predictive curves
             "n_predictive_curves": 100,  # number of posterior predictive curves to
         },
