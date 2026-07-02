@@ -382,6 +382,7 @@ class MLTCAVPhasing(BaseModel):
             set_tcav_amplitude_and_wait(
                 self.tcav, start_amp, amplitude_tolerance=self.amplitude_tolerance
             )
+            set_tcav_mode_config_and_wait(self.tcav, "STDBY")
             logger.info("Restored original TCAV amplitude.")
             logger.info("TCAV phase optimization complete.")
 
