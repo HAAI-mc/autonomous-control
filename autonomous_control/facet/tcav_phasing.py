@@ -39,7 +39,7 @@ TCAV_SETTLE_WAIT = 0.5
 TCAV_READ_RETRY_ATTEMPTS = 5
 TCAV_READ_RETRY_WAIT = 0.25
 TCAV_STATE_CHANGE_WAIT = (
-    10.0  # seconds to wait after changing TCAV mode before reading values
+    3.0  # seconds to wait after changing TCAV mode before reading values
 )
 
 
@@ -294,6 +294,7 @@ class MLTCAVPhasing(BaseModel):
         # acquire the beam posisition without the TCAV on
         self.nominal_centroid = self.acquire_nominal_centroid()
         logger.debug(f"Acquired nominal centroid: {self.nominal_centroid}")
+        logger.debug(f"TCAV: {self.tcav.controls_information.PVs}")
 
         # set the TCAV to ACCEL_STDBY mode and verify
         mode_config = read_tcav_attr_with_retry(self.tcav, "mode_config", log=logger)
