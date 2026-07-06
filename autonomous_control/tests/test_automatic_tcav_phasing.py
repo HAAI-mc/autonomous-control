@@ -85,12 +85,12 @@ class TestAutomaticTcavPhasing:
 
     def test_acquire_nominal_centroid(self, env):
         tcav = _get_tcav_or_fail(env)
-        transmission_measurement = env.transmission_measurement
 
+        # set upstream and downstream BPMs for transmission measurement
         env.upstream_bpm_name = "BPM10371"
         env.downstream_bpm_name = "BPM10651"
 
-        assert env.downstream_bpm is not None
+        transmission_measurement = env.transmission_measurement
 
         # Start from streaking-like conditions before calling acquire_nominal_centroid
         set_tcav_mode_config_and_wait(tcav, "ACCEL_STDBY")
