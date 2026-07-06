@@ -102,6 +102,7 @@ jobs:
           conda run -n va-ci python -m pip install --upgrade pip
           conda run -n va-ci python -m pip install -e ".[test,facility]"
           conda run -n va-ci python -m pip install "$RUNNER_TEMP/virtual-accelerator[pva,bmad,surrogate]"
+          conda run -n va-ci python -m pip install badger-opt
 
       - name: Start virtual accelerator
         shell: bash
