@@ -28,10 +28,15 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Python 3.13
-        uses: actions/setup-python@v5
+      - name: Set up conda environment
+        uses: conda-incubator/setup-miniconda@v3
         with:
-          python-version: "3.13"
+          miniconda-version: "latest"
+          auto-activate-base: false
+          activate-environment: va-ci
+          python-version: "3.12"
+          channels: conda-forge
+          channel-priority: strict
 
       - name: Validate required secret
         shell: bash
@@ -85,20 +90,21 @@ jobs:
       - name: Install project and runtime dependencies
         shell: bash
         run: |
-          python -m pip install --upgrade pip
-          python -m pip install -e ".[test]"
-          python -m pip install "$RUNNER_TEMP/virtual-accelerator[pva,bmad,surrogate]"
+          conda install -y -n va-ci -c conda-forge bmad pytao
+          conda run -n va-ci python -m pip install --upgrade pip
+          conda run -n va-ci python -m pip install -e ".[test]"
+          conda run -n va-ci python -m pip install "$RUNNER_TEMP/virtual-accelerator[pva,bmad,surrogate]"
 
       - name: Start virtual accelerator
         shell: bash
         run: |
-          python -m virtual_accelerator.models.runners facet_staged --end-element PR10711 --log-level=INFO > "$RUNNER_TEMP/va.log" 2>&1 &
+          conda run -n va-ci --no-capture-output python -m virtual_accelerator.models.runners facet_staged --end-element PR10711 --log-level=INFO > "$RUNNER_TEMP/va.log" 2>&1 &
           echo $! > "$RUNNER_TEMP/va.pid"
 
       - name: Wait for EPICS readiness
         shell: bash
         run: |
-          python - <<'PY'
+          conda run -n va-ci python - <<'PY'
           import pathlib
           import sys
           import time
@@ -106,7 +112,7 @@ jobs:
           import epics
 
           pv_name = "QUAD:IN10:121:BCTRL"
-          timeout_s = 120
+          timeout_s = 20
 
           print(f"Checking EPICS readiness for {pv_name} (timeout={timeout_s}s)", flush=True)
 
@@ -133,7 +139,7 @@ jobs:
       - name: Run test suite
         shell: bash
         run: |
-          python -m pytest autonomous_control/tests -v -s --durations=15
+          conda run -n va-ci python -m pytest autonomous_control/tests -v -s --durations=15
 
       - name: Stop virtual accelerator
         if: always()
