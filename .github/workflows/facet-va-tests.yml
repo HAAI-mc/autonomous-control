@@ -65,6 +65,13 @@ jobs:
           echo "FACET2_LATTICE=$RUNNER_TEMP/facet2-lattice" >> "$GITHUB_ENV"
           echo "PYTHONPATH=$RUNNER_TEMP/Badger-Resources/facet:$PYTHONPATH" >> "$GITHUB_ENV"
 
+      - name: Install EPICS CA tools
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends epics-base-bin
+          command -v caRepeater
+
       - name: Install project and runtime dependencies
         shell: bash
         run: |
@@ -91,20 +98,25 @@ jobs:
           pv_name = "QUAD:IN10:121:BCTRL"
           timeout_s = 120
 
+          print(f"Checking EPICS readiness for {pv_name} (timeout={timeout_s}s)", flush=True)
+
           for attempt in range(1, timeout_s + 1):
               pv = epics.get_pv(pv_name, auto_monitor=False)
               if pv.wait_for_connection(timeout=1.0):
-                  print(f"Connected to {pv_name} on attempt {attempt}")
+                  print(f"Connected to {pv_name} on attempt {attempt}", flush=True)
                   sys.exit(0)
-              if attempt % 10 == 0:
-                  print(f"Waiting for virtual accelerator... {attempt}s elapsed")
+              if attempt == 1 or attempt % 5 == 0:
+                  print(
+                      f"Waiting for virtual accelerator... attempt {attempt}/{timeout_s}",
+                      flush=True,
+                  )
               time.sleep(1)
 
-          print(f"Timed out waiting for {pv_name}")
+          print(f"Timed out waiting for {pv_name}", flush=True)
           log_path = pathlib.Path("$RUNNER_TEMP/va.log")
           if log_path.exists():
-              print("--- Last 200 lines of va.log ---")
-              print("\n".join(log_path.read_text(errors="replace").splitlines()[-200:]))
+              print("--- Last 200 lines of va.log ---", flush=True)
+              print("\n".join(log_path.read_text(errors="replace").splitlines()[-200:]), flush=True)
           sys.exit(1)
           PY
 
