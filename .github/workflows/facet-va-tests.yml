@@ -92,7 +92,7 @@ jobs:
       - name: Start virtual accelerator
         shell: bash
         run: |
-          python -m virtual_accelerator.models.runner facet_staged --end-element PR10711 --log-level=INFO > "$RUNNER_TEMP/va.log" 2>&1 &
+          python -m virtual_accelerator.models.runners facet_staged --end-element PR10711 --log-level=INFO > "$RUNNER_TEMP/va.log" 2>&1 &
           echo $! > "$RUNNER_TEMP/va.pid"
 
       - name: Wait for EPICS readiness
