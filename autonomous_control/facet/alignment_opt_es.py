@@ -79,6 +79,7 @@ def optimize_alignment(
     target_value=1.0,
     region_fraction=0.15,
     oscillation_size=0.01,
+    steering_settle_time=0.2,
 ):
     """Run the extremum-seeking alignment optimization process.
 
@@ -114,6 +115,9 @@ def optimize_alignment(
         by default 0.15.
     oscillation_size : float, optional
         Size of the oscillation for extremum-seeking, by default 0.01.
+    steering_settle_time : float, optional
+        Time in seconds to wait for steering adjustments to settle before taking measurements, by default 0.2.
+
     Returns
     -------
     Xopt
@@ -150,9 +154,11 @@ def optimize_alignment(
     def eval(inputs):
         logger.info(f"evaluating point: {inputs}")
         try:
+            # NOTE: using epics.caput_many instead of env.set_variables due to 
+            # slowdown issues getting all of the readbacks
             epics.caput_many(list(inputs.keys()),list(inputs.values()))
             #env.set_variables(inputs)
-            time.sleep(0.2)
+            time.sleep(steering_settle_time)
 
         except TransmissionError:
             logger.warning("Transmission error while setting variables.")

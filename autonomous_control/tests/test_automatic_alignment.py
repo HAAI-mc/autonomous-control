@@ -42,6 +42,7 @@ class TestAutomaticAlignment:
             region_fraction=1e-4,
             n_steps=n_steps,
             custom_corrector_pvs=custom_corrector_pvs,
+            steering_settle_time=5.0,  # VA is slow, so we have to wait a bit for the readbacks to settle
         )
         assert len(X.data) == n_steps + 2  # +2 for the initial measurement
 
