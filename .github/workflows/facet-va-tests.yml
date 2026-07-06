@@ -32,9 +32,10 @@ jobs:
         uses: conda-incubator/setup-miniconda@v3
         with:
           miniconda-version: "latest"
+          use-mamba: true
           auto-activate-base: false
           activate-environment: va-ci
-          python-version: "3.12"
+          python-version: "3.13"
           channels: conda-forge
           channel-priority: strict
 
@@ -87,10 +88,19 @@ jobs:
 
           command -v caRepeater
 
+      - name: Ensure conda environment exists
+        shell: bash
+        run: |
+          mamba --version
+          if ! conda env list | awk '{print $1}' | grep -qx "va-ci"; then
+            mamba create -y -n va-ci python=3.13
+          fi
+          conda run -n va-ci python -V
+
       - name: Install project and runtime dependencies
         shell: bash
         run: |
-          conda install -y -n va-ci -c conda-forge bmad pytao
+          mamba install -y -n va-ci -c conda-forge bmad pytao
           conda run -n va-ci python -m pip install --upgrade pip
           conda run -n va-ci python -m pip install -e ".[test]"
           conda run -n va-ci python -m pip install "$RUNNER_TEMP/virtual-accelerator[pva,bmad,surrogate]"
