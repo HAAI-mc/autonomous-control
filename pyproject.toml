@@ -24,7 +24,7 @@ dependencies = [
 
 [project.optional-dependencies]
 facility = [
-	"lcls-tools",
+	"lcls-tools @ git+https://github.com/slaclab/lcls-tools.git",
 	"ml-tto @ git+https://github.com/slaclab/ml-tto.git",
 ]
 test = [
