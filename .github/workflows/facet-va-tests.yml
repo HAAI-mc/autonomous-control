@@ -146,6 +146,7 @@ jobs:
           PY
 
       - name: Run test suite
+        timeout-minutes: 15
         shell: bash
         run: |
           conda run -n va-ci python -m pytest autonomous_control/tests -v -s --durations=15
@@ -158,8 +159,8 @@ jobs:
             kill "$(cat "$RUNNER_TEMP/va.pid")" 2>/dev/null || true
           fi
 
-      - name: Upload failure artifacts
-        if: failure()
+      - name: Upload failure or cancelled artifacts
+        if: failure() || cancelled()
         uses: actions/upload-artifact@v4
         with:
           name: va-test-debug
