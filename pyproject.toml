@@ -7,7 +7,7 @@ name = "autonomous-control"
 version = "0.1.0"
 description = "Code used to run autonomous operations at FACET-II and AWA."
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 dependencies = [
 	"numpy",
 	"pandas",
@@ -19,12 +19,13 @@ dependencies = [
 	"pydantic>=2",
 	"tenacity",
 	"pyepics",
+	"bax-algorithms",
 ]
 
 [project.optional-dependencies]
 facility = [
 	"lcls-tools",
-	"ml-tto",
+	"ml-tto @ git+https://github.com/slaclab/ml-tto.git",
 ]
 test = [
 	"pytest",

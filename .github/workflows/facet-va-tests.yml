@@ -100,7 +100,7 @@ jobs:
         run: |
           conda install -y -n va-ci -c conda-forge bmad pytao pip
           conda run -n va-ci python -m pip install --upgrade pip
-          conda run -n va-ci python -m pip install -e ".[test]"
+          conda run -n va-ci python -m pip install -e ".[test,facility]"
           conda run -n va-ci python -m pip install "$RUNNER_TEMP/virtual-accelerator[pva,bmad,surrogate]"
 
       - name: Start virtual accelerator
