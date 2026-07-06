@@ -149,7 +149,7 @@ jobs:
         timeout-minutes: 15
         shell: bash
         run: |
-          conda run -n va-ci python -m pytest autonomous_control/tests -v -s --durations=15
+          conda run -n va-ci --no-capture-output python -m pytest autonomous_control/tests -vv -ra -s -o console_output_style=progress --durations=15
 
       - name: Stop virtual accelerator
         if: always()
