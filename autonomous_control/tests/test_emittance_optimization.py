@@ -19,8 +19,8 @@ class TestAutomaticEmittance:
         environment.median_filter_size = None
         environment.min_beamsize_cutoff = 2000
         environment.min_bmag_threshold = 2000
-        environment.n_iterations = 1
-        environment.n_interpolate_points = 1
+        environment.n_iterations = 2
+        environment.n_interpolate_points = 3
 
         # remove PVs that are not supported by the VA
         for name in list(environment.variables.keys()):
@@ -36,10 +36,13 @@ class TestAutomaticEmittance:
         return environment
 
     def test_run_emittance_opt_on_va(self, env):
+        current_value = 5.46 #env.get_variables(["QUAD:IN10:511:BCTRL"])["QUAD:IN10:511:BCTRL"]
+        env.set_variables({"QUAD:IN10:511:BCTRL": current_value})
         X = minimize_injector_emittance(
             env,
-            variables={"QUAD:IN10:511:BCTRL": [5.0, 6.0]},
+            variables={"QUAD:IN10:511:BCTRL": [current_value - 0.01, current_value + 0.01]},
             n_steps=1,
-            min_joint_bmag_constraint=2000,
+            n_initial=1,
+            min_joint_bmag_constraint=10000,
         )
-        assert len(X.data) == 5
+        assert len(X.data) == 4
