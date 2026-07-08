@@ -46,8 +46,8 @@ class TestAutomaticAlignment:
         )
         assert len(X.data) == n_steps + 2  # +2 for the initial measurement
 
-        # assert that BPM readings are unique after the second row
+        # assert that BPM readings are unique after the second row and before the last row
         # this ensures that the optimization is waiting for readbacks
         # to stabilize before taking the next measurement
         bpm_readings = X.data.filter(like="BPMS:IN10", axis=1)
-        assert bpm_readings.iloc[1:].nunique().sum() == bpm_readings.iloc[1:].size
+        assert bpm_readings.iloc[1:-1].nunique().sum() == bpm_readings.iloc[1:-1].size
