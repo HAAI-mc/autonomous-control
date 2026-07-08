@@ -83,6 +83,7 @@ class TestAutomaticTcavPhasing:
             )
             assert np.isclose(float(tcav.phase_avgnt), target_phase, atol=0.5)
 
+    @pytest.mark.xfail(reason="This test requires VA reset to be called before running")
     def test_acquire_nominal_centroid(self, env):
         tcav = _get_tcav_or_fail(env)
 
