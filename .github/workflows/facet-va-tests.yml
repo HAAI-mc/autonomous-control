@@ -1,0 +1,174 @@
+name: FACET VA Integration Tests
+
+on:
+  pull_request:
+  push:
+  workflow_dispatch:
+  schedule:
+    # Nightly run at 06:00 UTC.
+    - cron: "0 6 * * *"
+
+jobs:
+  va-tests:
+    name: Run VA-backed test suite
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    # Skip fork PRs because private repo secrets are unavailable.
+    if: ${{ github.event_name != 'pull_request' || !github.event.pull_request.head.repo.fork }}
+    env:
+      PIP_DISABLE_PIP_VERSION_CHECK: "1"
+      EPICS_CA_AUTO_ADDR_LIST: "NO"
+      EPICS_CA_ADDR_LIST: "127.0.0.1:5064"
+      EPICS_CA_CONN_TMO: "30"
+      EPICS_CA_MAX_ARRAY_BYTES: "16777216"
+      EPICS_CA_REPEATER_PORT: "5065"
+      EPICS_CA_BEACON_PERIOD: "15"
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up conda environment
+        uses: conda-incubator/setup-miniconda@v3
+        with:
+          miniconda-version: "latest"
+          auto-activate-base: false
+          activate-environment: va-ci
+          python-version: "3.13"
+          channels: conda-forge
+          channel-priority: strict
+
+      - name: Validate required secret
+        shell: bash
+        run: |
+          if [[ -z "${{ secrets.BADGER_RESOURCES_SSH_KEY }}" ]]; then
+            echo "Missing required secret: BADGER_RESOURCES_SSH_KEY"
+            exit 1
+          fi
+
+      - name: Start ssh-agent with deploy key
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.BADGER_RESOURCES_SSH_KEY }}
+
+      - name: Add github.com host keys
+        shell: bash
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          ssh-keyscan -t rsa,ecdsa,ed25519 github.com >> ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+
+      - name: Clone external resources
+        shell: bash
+        run: |
+          git clone --depth=1 git@github.com:slaclab/Badger-Resources.git "$RUNNER_TEMP/Badger-Resources"
+          git clone --depth=1 https://github.com/slaclab/facet2-lattice.git "$RUNNER_TEMP/facet2-lattice"
+          git clone --depth=1 https://github.com/slaclab/virtual-accelerator.git "$RUNNER_TEMP/virtual-accelerator"
+
+          echo "BADGER_RESOURCES=$RUNNER_TEMP/Badger-Resources" >> "$GITHUB_ENV"
+          echo "FACET2_LATTICE=$RUNNER_TEMP/facet2-lattice" >> "$GITHUB_ENV"
+          echo "PYTHONPATH=$RUNNER_TEMP/Badger-Resources/facet:$PYTHONPATH" >> "$GITHUB_ENV"
+
+      - name: Install EPICS CA tools
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends software-properties-common
+          sudo add-apt-repository -y universe
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends epics-base
+
+          # caRepeater is required by pyepics/libca and may not be on PATH by default.
+          CAREPEATER_PATH="$(dpkg -L epics-base | grep '/caRepeater$' | head -n1 || true)"
+          if [[ -n "$CAREPEATER_PATH" ]]; then
+            echo "$(dirname "$CAREPEATER_PATH")" >> "$GITHUB_PATH"
+          fi
+
+          command -v caRepeater
+
+      - name: Ensure conda environment exists
+        shell: bash
+        run: |
+          if ! conda env list | awk '{print $1}' | grep -qx "va-ci"; then
+            conda create -y -n va-ci python=3.13
+          fi
+          conda run -n va-ci python -V
+
+      - name: Install project and runtime dependencies
+        shell: bash
+        run: |
+          conda install -y -n va-ci -c conda-forge bmad pytao pip
+          conda run -n va-ci python -m pip install --upgrade pip
+          conda run -n va-ci python -m pip install -e ".[test,facility]"
+          conda run -n va-ci python -m pip install "$RUNNER_TEMP/virtual-accelerator[pva,bmad,surrogate]"
+          conda run -n va-ci python -m pip install badger-opt
+
+      - name: Start virtual accelerator
+        shell: bash
+        run: |
+          conda run -n va-ci --no-capture-output python -m virtual_accelerator.models.runners facet_staged --end-element PR10711 --n-particles 1000 --log-level=DEBUG > "$RUNNER_TEMP/va.log" 2>&1 &
+          echo $! > "$RUNNER_TEMP/va.pid"
+
+      - name: Wait for EPICS readiness
+        shell: bash
+        run: |
+          conda run -n va-ci python - <<'PY'
+          import pathlib
+          import sys
+          import time
+
+          import epics
+
+          pv_name = "QUAD:IN10:121:BCTRL"
+          timeout_s = 20
+
+          print(f"Checking EPICS readiness for {pv_name} (timeout={timeout_s}s)", flush=True)
+
+          for attempt in range(1, timeout_s + 1):
+              pv = epics.get_pv(pv_name, auto_monitor=False)
+              if pv.wait_for_connection(timeout=1.0):
+                  print(f"Connected to {pv_name} on attempt {attempt}", flush=True)
+                  sys.exit(0)
+              if attempt == 1 or attempt % 5 == 0:
+                  print(
+                      f"Waiting for virtual accelerator... attempt {attempt}/{timeout_s}",
+                      flush=True,
+                  )
+              time.sleep(1)
+
+          print(f"Timed out waiting for {pv_name}", flush=True)
+          log_path = pathlib.Path("$RUNNER_TEMP/va.log")
+          if log_path.exists():
+              print("--- Last 200 lines of va.log ---", flush=True)
+              print("\n".join(log_path.read_text(errors="replace").splitlines()[-200:]), flush=True)
+          sys.exit(1)
+          PY
+
+      - name: Run test suite
+        timeout-minutes: 15
+        shell: bash
+        run: |
+          conda run -n va-ci --no-capture-output python -m pytest autonomous_control/tests -vv -ra -s -o console_output_style=progress --durations=15
+
+      - name: Stop virtual accelerator
+        if: always()
+        shell: bash
+        run: |
+          if [[ -f "$RUNNER_TEMP/va.pid" ]]; then
+            kill "$(cat "$RUNNER_TEMP/va.pid")" 2>/dev/null || true
+          fi
+
+      - name: Upload failure or cancelled artifacts
+        if: failure() || cancelled()
+        uses: actions/upload-artifact@v4
+        with:
+          name: va-test-debug
+          if-no-files-found: warn
+          path: |
+            ${{ runner.temp }}/va.log
+            ${{ github.workspace }}/*.h5
+            ${{ github.workspace }}/*.yaml
+            ${{ github.workspace }}/*.yml
+            ${{ github.workspace }}/*.jpeg
+            ${{ github.workspace }}/*.log

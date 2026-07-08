@@ -26,6 +26,7 @@ def minimize_injector_emittance(
     dump_location=None,
     n_steps=3,
     min_joint_bmag_constraint=1.5,
+    n_initial=2,
 ):
     """Run Bayesian optimization for injector emittance.
 
@@ -42,6 +43,8 @@ def minimize_injector_emittance(
         Number of optimization steps to perform, by default 3.
     min_joint_bmag_constraint : float, optional
         Maximum allowed value for `min_joint_bmag` inside Xopt constraints, by default 1.5.
+    n_initial : int, optional
+        Number of initial random evaluations to perform on top of current point, by default 2.
 
     Returns
     -------
@@ -109,9 +112,9 @@ def minimize_injector_emittance(
     logger.debug("Created Xopt object.")
 
     # evaluate the current point and two random points
-    logger.info("Running initial evaluations (current + 2 random points).")
+    logger.info("Running initial evaluations (current + %d random points).", n_initial)
     X.evaluate_data(env.get_variables(X.vocs.variable_names))
-    X.random_evaluate(2)
+    X.random_evaluate(n_initial)
 
     for i in range(n_steps):
         logger.debug("Running optimization step %d/%d", i + 1, n_steps)
