@@ -97,7 +97,7 @@ class TestAutomaticTcavPhasing:
         set_tcav_amplitude_and_wait(tcav, 0.3)
         set_tcav_phase_and_wait(tcav, 8.0)
 
-        time.sleep(5.0)  # wait for the VA to settle after changing the TCAV settings
+        time.sleep(15.0)  # wait for the VA to settle after changing the TCAV settings, can take a while
 
         phaser = MLTCAVPhasing(
             bpm=env.downstream_bpm,
