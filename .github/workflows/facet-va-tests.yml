@@ -113,15 +113,18 @@ jobs:
       - name: Wait for EPICS readiness
         shell: bash
         run: |
-          conda run -n va-ci python - <<'PY'
+          conda run -n va-ci python - "$RUNNER_TEMP" <<'PY'
+          import os
           import pathlib
           import sys
           import time
 
           import epics
 
+          runner_temp = sys.argv[1] if len(sys.argv) > 1 else os.environ.get("RUNNER_TEMP", "")
+
           pv_name = "QUAD:IN10:121:BCTRL"
-          timeout_s = 20
+          timeout_s = 120
 
           print(f"Checking EPICS readiness for {pv_name} (timeout={timeout_s}s)", flush=True)
 
@@ -138,7 +141,7 @@ jobs:
               time.sleep(1)
 
           print(f"Timed out waiting for {pv_name}", flush=True)
-          log_path = pathlib.Path("$RUNNER_TEMP/va.log")
+          log_path = pathlib.Path(runner_temp) / "va.log"
           if log_path.exists():
               print("--- Last 200 lines of va.log ---", flush=True)
               print("\n".join(log_path.read_text(errors="replace").splitlines()[-200:]), flush=True)
