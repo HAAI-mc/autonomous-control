@@ -11,7 +11,7 @@ def try_reset_va():
     """
     try:
         epics.caput("RESET", 1)
-        time.sleep(5.0)  # wait for the VA to reset
+        time.sleep(10.0)  # wait for the VA to reset
     except Exception:
         pass
 
