@@ -6,11 +6,11 @@ import time
 
 def _wait_for_va_ready(pv_name: str = "QUAD:IN10:121:BCTRL", timeout_s: int = 60) -> None:
     """Poll *pv_name* until it is connected and returning a value (up to *timeout_s* seconds)."""
+    pv = epics.get_pv(pv_name, auto_monitor=False)
     for _ in range(timeout_s):
-        pv = epics.get_pv(pv_name, auto_monitor=False)
-        if pv.wait_for_connection(timeout=1.0) and pv.get() is not None:
+        if pv.wait_for_connection(timeout=0.5) and pv.get() is not None:
             return
-        time.sleep(1)
+        time.sleep(0.5)
 
 
 def try_reset_va():
@@ -22,11 +22,10 @@ def try_reset_va():
     """
     try:
         epics.caput("RESET", 1)
+        # Wait for the VA to finish resetting before the next test.
+        _wait_for_va_ready(timeout_s=60)
     except Exception:
         pass
-
-    # Wait for the VA to finish resetting before the next test.
-    _wait_for_va_ready(timeout_s=60)
 
 
 @pytest.fixture(autouse=True)
