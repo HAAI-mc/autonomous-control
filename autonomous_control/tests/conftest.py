@@ -1,18 +1,26 @@
+import logging
 import pytest
 
 import epics
-import time
+
+logger = logging.getLogger(__name__)
 
 _VA_READINESS_PV = "QUAD:IN10:121:BCTRL"
 
 
 def _wait_for_va_ready(pv_name: str = _VA_READINESS_PV, timeout_s: int = 60) -> None:
-    """Poll *pv_name* until it is connected and returning a value (up to *timeout_s* seconds)."""
+    """Poll *pv_name* until it is connected and returning a value (up to *timeout_s* seconds).
+
+    Each iteration uses a 1-second connection window, so the loop runs at most
+    *timeout_s* times giving exactly *timeout_s* seconds of total wait time.
+    """
     pv = epics.get_pv(pv_name, auto_monitor=False)
-    for _ in range(timeout_s * 2):
-        if pv.wait_for_connection(timeout=0.5) and pv.get() is not None:
+    for _ in range(timeout_s):
+        if pv.wait_for_connection(timeout=1.0) and pv.get() is not None:
             return
-        time.sleep(0.5)
+    logger.warning(
+        "VA readiness check timed out after %d s waiting for %s", timeout_s, pv_name
+    )
 
 
 def try_reset_va():
