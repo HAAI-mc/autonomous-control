@@ -25,6 +25,9 @@ class TestAutomaticAlignment:
             ):
                 del environment.variables[name]
 
+        import time
+        time.sleep(30)
+
         return environment
 
     def test_automatic_alignment_on_va(self, env):

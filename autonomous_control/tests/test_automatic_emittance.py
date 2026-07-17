@@ -30,6 +30,10 @@ class TestAutomaticEmittance:
             ):
                 del environment.variables[name]
 
+        import time
+        import time
+        time.sleep(30)
+
         return environment
 
     def test_screen_measurement(self, env):
