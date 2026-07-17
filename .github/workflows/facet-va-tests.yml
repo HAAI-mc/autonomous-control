@@ -12,14 +12,14 @@ jobs:
   va-tests:
     name: Run VA-backed test suite
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 120
     # Skip fork PRs because private repo secrets are unavailable.
     if: ${{ github.event_name != 'pull_request' || !github.event.pull_request.head.repo.fork }}
     env:
       PIP_DISABLE_PIP_VERSION_CHECK: "1"
       EPICS_CA_AUTO_ADDR_LIST: "NO"
       EPICS_CA_ADDR_LIST: "127.0.0.1:5064"
-      EPICS_CA_CONN_TMO: "30"
+      EPICS_CA_CONN_TMO: "240"
       EPICS_CA_MAX_ARRAY_BYTES: "16777216"
       EPICS_CA_REPEATER_PORT: "5065"
       EPICS_CA_BEACON_PERIOD: "15"
@@ -113,7 +113,8 @@ jobs:
       - name: Wait for EPICS readiness
         shell: bash
         run: |
-          conda run -n va-ci python - <<'PY'
+          set -e
+          cat > "$RUNNER_TEMP/check_va.py" <<'PY'
           import pathlib
           import sys
           import time
@@ -121,7 +122,7 @@ jobs:
           import epics
 
           pv_name = "QUAD:IN10:121:BCTRL"
-          timeout_s = 20
+          timeout_s = 45
 
           print(f"Checking EPICS readiness for {pv_name} (timeout={timeout_s}s)", flush=True)
 
@@ -144,6 +145,10 @@ jobs:
               print("\n".join(log_path.read_text(errors="replace").splitlines()[-200:]), flush=True)
           sys.exit(1)
           PY
+
+          echo "=== RUNNING READINESS CHECK PYTHON SCRIPT ==="
+          conda run -n va-ci python "$RUNNER_TEMP/check_va.py"
+          echo "=== READINESS CHECK PYTHON SCRIPT FINISHED ==="
 
       - name: Run test suite
         timeout-minutes: 15
