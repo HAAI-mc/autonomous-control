@@ -108,6 +108,7 @@ jobs:
         shell: bash
         run: |
           conda run -n va-ci --no-capture-output python -m virtual_accelerator.models.runners facet_staged --end-element PR10711 --n-particles 1000 --log-level=DEBUG > "$RUNNER_TEMP/va.log" 2>&1 &
+          sleep 45
           echo $! > "$RUNNER_TEMP/va.pid"
 
       - name: Wait for EPICS readiness
