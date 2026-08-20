@@ -36,7 +36,7 @@ class TestAutomaticEmittance:
         return environment
 
     def test_run_emittance_opt_on_va(self, env):
-        current_value = 5.46 #env.get_variables(["QUAD:IN10:511:BCTRL"])["QUAD:IN10:511:BCTRL"]
+        current_value = env.get_variables(["QUAD:IN10:511:BCTRL"])["QUAD:IN10:511:BCTRL"]
         env.set_variables({"QUAD:IN10:511:BCTRL": current_value})
         X = minimize_injector_emittance(
             env,
