@@ -2,10 +2,7 @@ import logging
 import os
 import time
 
-from autonomous_control.facet.optimization_utils import (
-    merge_config,
-    restore_on_error,
-)
+from autonomous_control.facet.optimization_utils import restore_on_error
 
 logger = logging.getLogger("auto_emittance")
 
@@ -17,7 +14,6 @@ def run_automatic_emittance(
     dump_location=None,
     config_directory=None,
     screen_settle_time=2.0,
-    screens=None,
 ):
     """
     Run an automatic emittance measurement for the specified screen using
@@ -41,10 +37,6 @@ def run_automatic_emittance(
         Defaults to the FACET badger resources emittance config directory.
     screen_settle_time : float, optional
         Wait time in seconds after changing screen targets, by default 2.0.
-    screens : dict, optional
-        Per-screen mapping of insertion targets and config file names.
-        Keys are screen names and values must include ``targets`` and
-        ``config_file`` entries.
 
     Returns
     -------
@@ -69,7 +61,6 @@ def run_automatic_emittance(
             "config_file": "PR10711.yaml",
         },
     }
-    screen_settings = merge_config(default_screens, screens)
 
     if dump_location is not None:
         env.save_directory = str(dump_location)
@@ -78,7 +69,7 @@ def run_automatic_emittance(
 
     logger.info(f"Starting automatic emittance measurement on screen: {screen_name}")
 
-    screen_config = screen_settings.get(screen_name)
+    screen_config = default_screens.get(screen_name)
     if screen_config is None:
         raise ValueError(f"Unsupported screen_name: {screen_name}")
 
@@ -106,7 +97,6 @@ def measure_emittance(
     screen_name,
     config_directory=None,
     screen_settle_time=2.0,
-    screens=None,
 ):
     """Run automatic emittance and return only the Xopt object.
 
@@ -119,6 +109,5 @@ def measure_emittance(
         dump_location=dump_location,
         config_directory=config_directory,
         screen_settle_time=screen_settle_time,
-        screens=screens,
     )
     return xopt

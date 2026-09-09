@@ -3,6 +3,46 @@
 import epics
 import sys
 import os
+from typing import Any, Iterable, Protocol
+
+
+class ScreenInterface(Protocol):
+    """Minimal interface for a screen device used by auto_6d/auto_emittance."""
+
+    name: str
+    target: int
+
+
+class TCAVInterface(Protocol):
+    """Minimal interface for a TCAV device used by auto_6d/auto_emittance."""
+
+    mode_config: str
+
+
+class EnvironmentInterface(Protocol):
+    """Informal environment contract required by auto_6d.py and auto_emittance.py.
+
+    Documents (via structural typing) the attributes/methods those modules rely
+    on, so other control environments can be swapped in without code changes.
+
+    Assumes ``screens`` is a dict mapping screen name (str) to a Screen object
+    (``ScreenInterface``); callers look up individual screens by name via
+    ``env.screens[name]``.
+    """
+
+    screens: dict[str, ScreenInterface]
+    tcav: TCAVInterface
+    variables: dict[str, Any]
+    save_directory: str
+    emittance_config_fname: str
+
+    def get_variables(self, keys: Iterable[str]) -> dict[str, Any]: ...
+
+    def set_variables(self, state: dict[str, Any]) -> None: ...
+
+    def _create_emittance_object(self) -> None: ...
+
+    def run_emittance_measurement(self) -> tuple[Any, str]: ...
 
 
 def create_env():
