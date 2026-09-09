@@ -1,6 +1,7 @@
 import logging
 
 from autonomous_control.facet.auto_emittance import run_automatic_emittance
+from autonomous_control.facet.env_utils import validate_environment
 
 try:
     from autonomous_control.facet.optimization_utils import restore_on_error
@@ -17,8 +18,8 @@ logger = logging.getLogger("auto_6d")
 def run_automatic_6d_measurement(
     env,
     save_filename,
-    screen_names=("PR10571", "PR10711"),
-    tcav_modes=None,
+    screen_names,
+    tcav_modes=("STDBY", "ACCEL_STDBY"),
     reset_tcav_mode="STDBY",
     tcav_settle_time=2.0,
     dump_location=None,
@@ -43,7 +44,7 @@ def run_automatic_6d_measurement(
         written after every measurement step.
     screen_names : tuple of str, optional
         Names of the two screens to scan, in order; each must be a key of
-        ``env.screens``. Defaults to ``("PR10571", "PR10711")``.
+        ``env.screens``.
     tcav_modes : tuple of str, optional
         ``env.tcav.mode_config`` values to scan through, in order; each value
         is also used verbatim as the result-key suffix. Defaults to
@@ -66,8 +67,7 @@ def run_automatic_6d_measurement(
     tracking_data : pandas.DataFrame
         Concatenated Xopt data frames from all quad scans.
     """
-    if tcav_modes is None:
-        tcav_modes = ("STDBY", "ACCEL_STDBY")
+    validate_environment(env)
 
     saver = H5Saver()
     data = {}

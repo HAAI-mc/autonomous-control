@@ -1,7 +1,11 @@
 """Hardware-free tests for run_automatic_6d_measurement's generalized sequence."""
 
+from unittest.mock import MagicMock
+
 import pandas as pd
 import pytest
+from lcls_tools.common.devices.screen import Screen
+from lcls_tools.common.devices.tcav import TCAV
 
 import autonomous_control.facet.auto_6d as auto_6d_module
 from autonomous_control.facet.auto_6d import run_automatic_6d_measurement
@@ -21,26 +25,38 @@ class _FakeXopt:
         self.data = pd.DataFrame([row])
 
 
-class _FakeScreen:
-    def __init__(self, name):
-        self.name = name
-        self.target = 0
+def _make_fake_screen(name):
+    screen = MagicMock(spec=Screen)
+    screen.name = name
+    screen.target = 0
+    return screen
 
 
-class _FakeTCAV:
-    def __init__(self):
-        self.mode_config = None
+def _make_fake_tcav():
+    tcav = MagicMock(spec=TCAV)
+    tcav.mode_config = None
+    return tcav
 
 
 class _FakeEnv:
     def __init__(self, screen_names=("PR10571", "PR10711")):
-        self.tcav = _FakeTCAV()
-        self.screens = {name: _FakeScreen(name) for name in screen_names}
+        self.tcav = _make_fake_tcav()
+        self.screens = {name: _make_fake_screen(name) for name in screen_names}
         self.save_directory = "."
+        self.emittance_config_fname = ""
         self.variables = {"PV1": 1.0}
 
     def get_variables(self, keys):
         return {k: self.variables[k] for k in keys}
+
+    def set_variables(self, state):
+        self.variables.update(state)
+
+    def _create_emittance_object(self):
+        pass
+
+    def run_emittance_measurement(self):
+        pass
 
 
 @pytest.fixture(autouse=True)
@@ -65,7 +81,9 @@ class TestAutomaticSixD:
         )
         env = _FakeEnv()
 
-        data, tracking_data = run_automatic_6d_measurement(env, "unused.h5")
+        data, tracking_data = run_automatic_6d_measurement(
+            env, "unused.h5", screen_names=("PR10571", "PR10711")
+        )
 
         assert list(data.keys()) == [
             "PR10571_STDBY",
@@ -117,3 +135,15 @@ class TestAutomaticSixD:
             ("SCREEN_C", "MODE_HI", None),
         ]
         assert env.tcav.mode_config == "MODE_RESET"
+
+    def test_invalid_environment_is_rejected(self, monkeypatch):
+        monkeypatch.setattr(
+            auto_6d_module, "run_automatic_emittance", _fake_run_automatic_emittance
+        )
+        env = _FakeEnv()
+        env.screens["PR10571"] = object()  # not a Screen instance
+
+        with pytest.raises(TypeError, match="Screen instance"):
+            run_automatic_6d_measurement(
+                env, "unused.h5", screen_names=("PR10571", "PR10711")
+            )
