@@ -36,7 +36,7 @@ from autonomous_control.facet.runner import run_automatic_workflow
 workflow = [
     {
         "type": "measure_emittance",
-        "screen_name": "PR10571",
+        "config_file": "PR10571.yaml",
     },
     {
         "type": "tcav_phasing",

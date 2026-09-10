@@ -51,7 +51,7 @@ def run_automatic_workflow(
     ```python
     >>> from autonomous_control.facet.runner import run_automatic_workflow
     >>> workflow = [
-    >>>     {"type": "measure_emittance", "screen_name": "PR10571"},
+    >>>     {"type": "measure_emittance", "config_file": "PR10571.yaml"},
     >>>     {"type": "tcav_phasing", "max_scan_range": [-10, 10], "n_iterations": 3, "n_initial_points": 3},
     >>> ]
     >>> run_automatic_workflow(workflow, dump_location="results", reset_env_after=True, logging_level=logging.INFO)
