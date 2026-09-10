@@ -1,12 +1,11 @@
 import logging
 
-from autonomous_control.facet.auto_emittance import run_automatic_emittance
+from autonomous_control.facet.auto_emittance import (
+    resolve_emittance_config,
+    run_automatic_emittance,
+)
 from autonomous_control.facet.env_utils import validate_environment
-
-try:
-    from autonomous_control.facet.optimization_utils import restore_on_error
-except ImportError:
-    from autonomous_control.facet.optimization_utils import restore_on_error
+from autonomous_control.facet.optimization_utils import restore_on_error
 from lcls_tools.common.data.saver import H5Saver
 import time
 import pandas as pd
@@ -18,19 +17,19 @@ logger = logging.getLogger("auto_6d")
 def run_automatic_6d_measurement(
     env,
     save_filename,
-    screen_names,
+    config_files,
     tcav_modes=("STDBY", "ACCEL_STDBY"),
     reset_tcav_mode="STDBY",
     tcav_settle_time=2.0,
+    tcav_amplitude=0.4,
     dump_location=None,
 ):
     """Run a full 6D emittance measurement sequence.
 
-    Performs a quad scan on each screen in ``screen_names``, with the TCAV
+    Performs a quad scan for each file in ``config_files``, with the TCAV
     set to each mode in ``tcav_modes`` in turn, saving incremental results
     after every step. Screen insertion/retraction targets for each scan are
-    resolved by ``run_automatic_emittance``, so this function does not
-    hardcode any device names itself.
+    read from the selected emittance YAML config.
 
     Parameters
     ----------
@@ -42,9 +41,8 @@ def run_automatic_6d_measurement(
     save_filename : str or pathlib.Path
         Output path for the HDF5 results file.  Intermediate results are
         written after every measurement step.
-    screen_names : tuple of str, optional
-        Names of the two screens to scan, in order; each must be a key of
-        ``env.screens``.
+    config_files : tuple of str or pathlib.Path
+        Emittance YAML config files to run, in order.
     tcav_modes : tuple of str, optional
         ``env.tcav.mode_config`` values to scan through, in order; each value
         is also used verbatim as the result-key suffix. Defaults to
@@ -54,6 +52,8 @@ def run_automatic_6d_measurement(
         by default ``"STDBY"``.
     tcav_settle_time : float, optional
         Wait time in seconds after changing the TCAV mode, by default 2.0.
+    tcav_amplitude : float, optional
+        TCAV amplitude to set before each measurement, by default 0.4.
     dump_location : str or pathlib.Path, optional
         Forwarded to ``run_automatic_emittance`` as the measurement dump
         directory.
@@ -61,7 +61,7 @@ def run_automatic_6d_measurement(
     Returns
     -------
     data : dict
-        Keyed by ``f"{screen_name}_{mode}"`` for every ``screen_names`` x
+        Keyed by ``f"{screen_name}_{mode}"`` for every ``config_files`` x
         ``tcav_modes`` combination; each value is a dict containing the
         serialized emittance result and captured environment variables.
     tracking_data : pandas.DataFrame
@@ -73,8 +73,18 @@ def run_automatic_6d_measurement(
     data = {}
     tracking_data = None
 
-    for name in screen_names:
-        screen_name = env.screens[name].name
+
+    # get the old tcav amplitude and set the new amplitude
+    old_tcav_amplitude = env.tcav.amplitude
+    env.tcav.amplitude = tcav_amplitude
+
+    for config_file in config_files:
+        _, screen_name, _ = resolve_emittance_config(config_file)
+        if screen_name not in env.screens:
+            raise ValueError(
+                f"Config file {config_file} references unknown screen {screen_name!r}"
+            )
+
         for mode in tcav_modes:
             env.tcav.mode_config = mode
             time.sleep(tcav_settle_time)
@@ -82,7 +92,7 @@ def run_automatic_6d_measurement(
             logger.info(f"running {screen_name} quad scan tcav {mode}")
             emittance_result, _, X = run_automatic_emittance(
                 env,
-                screen_name=screen_name,
+                config_file,
                 dump_location=dump_location,
             )
             data[f"{screen_name}_{mode}"] = emittance_result.model_dump() | {
@@ -95,8 +105,11 @@ def run_automatic_6d_measurement(
             )
             saver.dump(data, save_filename)
 
-    # return the TCAV to a safe state after the sequence completes
+    # return the TCAV to a safe state after the sequence completes 
+    # and restore it to the old amplitude
     env.tcav.mode_config = reset_tcav_mode
+    env.tcav.amplitude = old_tcav_amplitude
+
     time.sleep(tcav_settle_time)
 
     return data, tracking_data

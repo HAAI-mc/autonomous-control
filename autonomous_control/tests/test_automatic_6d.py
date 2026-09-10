@@ -1,5 +1,6 @@
 """Hardware-free tests for run_automatic_6d_measurement's generalized sequence."""
 
+from pathlib import Path
 from unittest.mock import MagicMock
 
 import pandas as pd
@@ -67,8 +68,13 @@ def _no_disk_io(monkeypatch):
     )
 
 
-def _fake_run_automatic_emittance(env, screen_name, dump_location=None):
+def _fake_run_automatic_emittance(
+    env,
+    config_file,
+    dump_location=None,
+):
     mode = env.tcav.mode_config
+    screen_name = Path(config_file).stem
     return _FakeResult(screen_name, mode), "fake.h5", _FakeXopt(
         {"screen_name": screen_name, "mode": mode}
     )
@@ -79,10 +85,21 @@ class TestAutomaticSixD:
         monkeypatch.setattr(
             auto_6d_module, "run_automatic_emittance", _fake_run_automatic_emittance
         )
+        monkeypatch.setattr(
+            auto_6d_module,
+            "resolve_emittance_config",
+            lambda config_file: (
+                config_file,
+                Path(config_file).stem,
+                {Path(config_file).stem: 1},
+            ),
+        )
         env = _FakeEnv()
 
         data, tracking_data = run_automatic_6d_measurement(
-            env, "unused.h5", screen_names=("PR10571", "PR10711")
+            env,
+            "unused.h5",
+            config_files=("PR10571.yaml", "PR10711.yaml"),
         )
 
         assert list(data.keys()) == [
@@ -97,10 +114,24 @@ class TestAutomaticSixD:
     def test_custom_screen_names_and_tcav_modes(self, monkeypatch):
         calls = []
 
-        def recording_run_automatic_emittance(env, screen_name, dump_location=None):
-            calls.append((screen_name, env.tcav.mode_config, dump_location))
+        def recording_run_automatic_emittance(
+            env,
+            config_file,
+            dump_location=None,
+        ):
+            screen_name = Path(config_file).stem
+            calls.append(
+                (
+                    screen_name,
+                    env.tcav.mode_config,
+                    dump_location,
+                    config_file,
+                )
+            )
             return _fake_run_automatic_emittance(
-                env, screen_name, dump_location=dump_location
+                env,
+                config_file,
+                dump_location=dump_location,
             )
 
         monkeypatch.setattr(
@@ -108,12 +139,21 @@ class TestAutomaticSixD:
             "run_automatic_emittance",
             recording_run_automatic_emittance,
         )
+        monkeypatch.setattr(
+            auto_6d_module,
+            "resolve_emittance_config",
+            lambda config_file: (
+                config_file,
+                Path(config_file).stem,
+                {Path(config_file).stem: 1},
+            ),
+        )
         env = _FakeEnv(screen_names=("SCREEN_A", "SCREEN_B", "SCREEN_C"))
 
         data, _ = run_automatic_6d_measurement(
             env,
             "unused.h5",
-            screen_names=("SCREEN_A", "SCREEN_B", "SCREEN_C"),
+            config_files=("SCREEN_A.yaml", "SCREEN_B.yaml", "SCREEN_C.yaml"),
             tcav_modes=("MODE_LO", "MODE_HI"),
             reset_tcav_mode="MODE_RESET",
         )
@@ -127,12 +167,42 @@ class TestAutomaticSixD:
             "SCREEN_C_MODE_HI",
         ]
         assert calls == [
-            ("SCREEN_A", "MODE_LO", None),
-            ("SCREEN_A", "MODE_HI", None),
-            ("SCREEN_B", "MODE_LO", None),
-            ("SCREEN_B", "MODE_HI", None),
-            ("SCREEN_C", "MODE_LO", None),
-            ("SCREEN_C", "MODE_HI", None),
+            (
+                "SCREEN_A",
+                "MODE_LO",
+                None,
+                "SCREEN_A.yaml",
+            ),
+            (
+                "SCREEN_A",
+                "MODE_HI",
+                None,
+                "SCREEN_A.yaml",
+            ),
+            (
+                "SCREEN_B",
+                "MODE_LO",
+                None,
+                "SCREEN_B.yaml",
+            ),
+            (
+                "SCREEN_B",
+                "MODE_HI",
+                None,
+                "SCREEN_B.yaml",
+            ),
+            (
+                "SCREEN_C",
+                "MODE_LO",
+                None,
+                "SCREEN_C.yaml",
+            ),
+            (
+                "SCREEN_C",
+                "MODE_HI",
+                None,
+                "SCREEN_C.yaml",
+            ),
         ]
         assert env.tcav.mode_config == "MODE_RESET"
 
@@ -140,10 +210,21 @@ class TestAutomaticSixD:
         monkeypatch.setattr(
             auto_6d_module, "run_automatic_emittance", _fake_run_automatic_emittance
         )
+        monkeypatch.setattr(
+            auto_6d_module,
+            "resolve_emittance_config",
+            lambda config_file: (
+                config_file,
+                Path(config_file).stem,
+                {Path(config_file).stem: 1},
+            ),
+        )
         env = _FakeEnv()
         env.screens["PR10571"] = object()  # not a Screen instance
 
         with pytest.raises(TypeError, match="Screen instance"):
             run_automatic_6d_measurement(
-                env, "unused.h5", screen_names=("PR10571", "PR10711")
+                env,
+                "unused.h5",
+                config_files=("PR10571.yaml", "PR10711.yaml"),
             )

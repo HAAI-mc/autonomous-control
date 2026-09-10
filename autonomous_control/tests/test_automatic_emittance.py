@@ -1,6 +1,7 @@
 import pytest
 
 import logging
+from pathlib import Path
 
 from autonomous_control.facet.auto_emittance import run_automatic_emittance
 from autonomous_control.facet.env_utils import create_facet_env
@@ -46,5 +47,9 @@ class TestAutomaticEmittance:
         env.create_beamprofile_measurement("PR10711").measure()
 
     def test_run_automatic_emittance_on_va(self, env):
-        result, fname, X = run_automatic_emittance(env, screen_name="PR10571")
+        config_dir = Path(env.emittance_config_fname).parent
+        result, fname, X = run_automatic_emittance(
+            env,
+            config_dir / "PR10571.yaml",
+        )
         print(X)

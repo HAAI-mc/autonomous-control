@@ -1,4 +1,5 @@
 import logging
+from pathlib import Path
 
 import pytest
 
@@ -35,8 +36,12 @@ class TestAutomaticSixDFacet:
         return environment
 
     def test_run_automatic_6d_measurement_on_va(self, env):
+        config_dir = Path(env.emittance_config_fname).parent
         data, tracking_data = run_automatic_6d_measurement(
-            env, "unused.h5", screen_names=("PR10571", "PR10711")
+            env,
+            "unused.h5",
+            config_files=(config_dir / "PR10571.yaml", config_dir / "PR10571.yaml"), # until we fix the simulation for 711
+            tcav_amplitude=0.0,
         )
         print(data)
         print(tracking_data)

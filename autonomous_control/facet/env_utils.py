@@ -98,7 +98,7 @@ def create_facet_env():
     # add the path that contains the facet environment
     sys.path.insert(0, os.path.join(os.environ["BADGER_RESOURCES"], "facet"))
 
-    from plugins.environments.inj_emit import Environment
+    from plugins.environments.facet_autonomous_injector import Environment
     from plugins.interfaces.epics import Interface
 
     env = Environment(interface=Interface())
@@ -112,14 +112,14 @@ def create_facet_env():
 
 def create_cuhxr_env():
     """
-    Create and configure the CU-HXR badger environment for use in autonomous workflows.
+    Create and configure the CU Autonomous Injector badger environment for use in autonomous workflows.
 
     """
 
     # add the path that contains the cu_hxr environment
-    sys.path.insert(0, os.path.join(os.environ["BADGER_RESOURCES"], "cu_hxr"))
+    sys.path.insert(0, os.path.join(os.environ["BADGER_RESOURCES"], "dev"))
 
-    from plugins.environments.nc_inj_emit import Environment
+    from plugins.environments.cu_autonomous_injector import Environment
     from plugins.interfaces.epics import Interface
 
     env = Environment(interface=Interface())
