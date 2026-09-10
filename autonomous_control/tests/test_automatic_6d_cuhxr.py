@@ -34,7 +34,7 @@ class TestAutomaticSixDCUHXR:
 
         return environment
 
-    @pytest.xfail("Expected to fail due to incomplete VA for lcls inj")
+    @pytest.xfail(reason="Expected to fail due to incomplete VA for lcls inj")
     def test_run_automatic_6d_measurement_on_va(self, env):
         config_dir = Path(env.emittance_config_fname).parent
 
