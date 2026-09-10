@@ -3,7 +3,7 @@ import pytest
 import logging
 
 from autonomous_control.facet.auto_emittance import run_automatic_emittance
-from autonomous_control.facet.env_utils import create_env
+from autonomous_control.facet.env_utils import create_facet_env
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -11,13 +11,15 @@ logging.basicConfig(level=logging.DEBUG)
 class TestAutomaticEmittance:
     @pytest.fixture
     def env(self):
-        environment = create_env()
+        environment = create_facet_env()
 
         # testing config for VA
         environment.measure_background = False
         environment.save_directory = "."
         environment.median_filter_size = None
         environment.min_beamsize_cutoff = 2000
+        environment.n_iterations = 1
+        environment.n_interpolate_points = 1
 
         # remove PVs that are not supported by the VA
         for name in list(environment.variables.keys()):

@@ -89,7 +89,7 @@ def validate_environment(env) -> None:
         )
 
 
-def create_env():
+def create_facet_env():
     """
     Create and configure the FACET-II badger environment for use in autonomous workflows.
 
@@ -99,6 +99,27 @@ def create_env():
     sys.path.insert(0, os.path.join(os.environ["BADGER_RESOURCES"], "facet"))
 
     from plugins.environments.inj_emit import Environment
+    from plugins.interfaces.epics import Interface
+
+    env = Environment(interface=Interface())
+
+    import torch
+
+    torch.set_num_threads(1)
+    os.environ["OMP_NUM_THREADS"] = "5"
+
+    return env
+
+def create_cuhxr_env():
+    """
+    Create and configure the CU-HXR badger environment for use in autonomous workflows.
+
+    """
+
+    # add the path that contains the cu_hxr environment
+    sys.path.insert(0, os.path.join(os.environ["BADGER_RESOURCES"], "cu_hxr"))
+
+    from plugins.environments.nc_inj_emit import Environment
     from plugins.interfaces.epics import Interface
 
     env = Environment(interface=Interface())

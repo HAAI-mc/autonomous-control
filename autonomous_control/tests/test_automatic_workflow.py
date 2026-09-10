@@ -1,13 +1,13 @@
 import pytest
 
-from autonomous_control.facet.env_utils import create_env
+from autonomous_control.facet.env_utils import create_facet_env
 from autonomous_control.facet.runner import run_automatic_workflow
 
 
 class TestAutomaticWorkflow:
     @pytest.fixture
     def env(self):
-        environment = create_env()
+        environment = create_facet_env()
 
         # testing config for VA
         environment.measure_background = False

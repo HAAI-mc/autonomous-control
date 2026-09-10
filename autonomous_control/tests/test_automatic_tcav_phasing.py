@@ -2,7 +2,7 @@ import time
 import pytest
 import numpy as np
 
-from autonomous_control.facet.env_utils import create_env
+from autonomous_control.facet.env_utils import create_facet_env
 from autonomous_control.facet.tcav_phasing import (
     MLTCAVPhasing,
     tcav_phasing,
@@ -33,7 +33,7 @@ def _get_tcav_or_fail(env):
 class TestAutomaticTcavPhasing:
     @pytest.fixture
     def env(self):
-        environment = create_env()
+        environment = create_facet_env()
 
         # testing config for VA
         environment.measure_background = False

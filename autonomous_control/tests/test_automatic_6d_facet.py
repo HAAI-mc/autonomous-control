@@ -1,14 +1,14 @@
+import logging
+
 import pytest
 
+from autonomous_control.facet.auto_6d import run_automatic_6d_measurement
 from autonomous_control.facet.env_utils import create_facet_env
-from autonomous_control.facet.emittance_opt import minimize_injector_emittance
-
-import logging
 
 logging.basicConfig(level=logging.DEBUG)
 
 
-class TestAutomaticEmittance:
+class TestAutomaticSixDFacet:
     @pytest.fixture
     def env(self):
         environment = create_facet_env()
@@ -18,9 +18,8 @@ class TestAutomaticEmittance:
         environment.save_directory = "."
         environment.median_filter_size = None
         environment.min_beamsize_cutoff = 2000
-        environment.min_bmag_threshold = 2000
-        environment.n_iterations = 2
-        environment.n_interpolate_points = 3
+        environment.n_iterations = 1
+        environment.n_interpolate_points = 1
 
         # remove PVs that are not supported by the VA
         for name in list(environment.variables.keys()):
@@ -35,14 +34,9 @@ class TestAutomaticEmittance:
 
         return environment
 
-    def test_run_emittance_opt_on_va(self, env):
-        current_value = 5.46 #env.get_variables(["QUAD:IN10:511:BCTRL"])["QUAD:IN10:511:BCTRL"]
-        env.set_variables({"QUAD:IN10:511:BCTRL": current_value})
-        X = minimize_injector_emittance(
-            env,
-            variables={"QUAD:IN10:511:BCTRL": [current_value - 0.01, current_value + 0.01]},
-            n_steps=1,
-            n_initial=1,
-            min_joint_bmag_constraint=10000,
+    def test_run_automatic_6d_measurement_on_va(self, env):
+        data, tracking_data = run_automatic_6d_measurement(
+            env, "unused.h5", screen_names=("PR10571", "PR10711")
         )
-        assert len(X.data) == 4
+        print(data)
+        print(tracking_data)
