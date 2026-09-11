@@ -3,8 +3,8 @@ import pytest
 import logging
 from pathlib import Path
 
-from autonomous_control.facet.auto_emittance import run_automatic_emittance
-from autonomous_control.facet.env_utils import create_facet_env
+from autonomous_control.auto_emittance import run_automatic_emittance
+from autonomous_control.env_utils import create_facet_env
 
 logging.basicConfig(level=logging.DEBUG)
 

@@ -1,7 +1,7 @@
 import pytest
 from pathlib import Path
 
-from autonomous_control.facet.env_utils import create_facet_env
+from autonomous_control.env_utils import create_facet_env
 from autonomous_control.facet.runner import run_automatic_workflow
 
 

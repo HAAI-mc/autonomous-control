@@ -2,8 +2,8 @@ import logging
 from pathlib import Path
 import pytest
 
-from autonomous_control.facet.auto_6d import run_automatic_6d_measurement
-from autonomous_control.facet.env_utils import create_cuhxr_env
+from autonomous_control.auto_6d import run_automatic_6d_measurement
+from autonomous_control.env_utils import create_cuhxr_env
 
 logging.basicConfig(level=logging.DEBUG)
 
