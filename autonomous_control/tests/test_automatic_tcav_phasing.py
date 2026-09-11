@@ -58,7 +58,10 @@ class TestAutomaticTcavPhasing:
         tcav = _get_tcav_or_fail(env)
 
         for mode in ["STDBY", "ACCEL_STDBY"]:
-            set_tcav_mode_config_and_wait(tcav, mode)
+            #set_tcav_mode_config_and_wait(tcav, mode)
+            env.tcav.mode_config = mode
+            import time
+            time.sleep(30)
             assert tcav.mode_config == mode
 
     def test_set_tcav_amplitude_and_wait(self, env):

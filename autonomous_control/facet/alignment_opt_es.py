@@ -12,6 +12,7 @@ from xopt.vocs import (
 )
 
 
+
 from autonomous_control.facet.optimization_utils import (
     restore_on_error,
     safe_evaluate_best_point,
