@@ -205,8 +205,8 @@ def set_tcav_mode_config_and_wait(
         label="mode",
     )
     # NOTE: there are no readbacks for the mode change, so we just wait a few seconds to let the TCAV update
-    if current_mode != target_mode:
-        logger.debug(
+    while current_mode != target_mode:
+        logger.info(
             "waiting %s seconds for TCAV to update after mode change",
             TCAV_STATE_CHANGE_WAIT,
         )
