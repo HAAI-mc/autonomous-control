@@ -1,13 +1,14 @@
 import pytest
+from pathlib import Path
 
-from autonomous_control.facet.env_utils import create_env
+from autonomous_control.facet.env_utils import create_facet_env
 from autonomous_control.facet.runner import run_automatic_workflow
 
 
 class TestAutomaticWorkflow:
     @pytest.fixture
     def env(self):
-        environment = create_env()
+        environment = create_facet_env()
 
         # testing config for VA
         environment.measure_background = False
@@ -29,11 +30,13 @@ class TestAutomaticWorkflow:
         return environment
 
     def test_run_automatic_workflow_on_va(self, env):
+        config_dir = Path(env.emittance_config_fname).parent
+
         # define a simple workflow with two steps
         workflow = [
             {
                 "type": "measure_emittance",
-                "screen_name": "PR10571",
+                "config_file": config_dir / "PR10571.yaml",
             },
             {
                 "type": "tcav_phasing",

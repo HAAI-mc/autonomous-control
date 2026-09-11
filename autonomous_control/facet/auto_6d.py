@@ -1,11 +1,11 @@
 import logging
 
-from autonomous_control.facet.auto_emittance import run_automatic_emittance
-
-try:
-    from autonomous_control.facet.optimization_utils import restore_on_error
-except ImportError:
-    from autonomous_control.facet.optimization_utils import restore_on_error
+from autonomous_control.facet.auto_emittance import (
+    resolve_emittance_config,
+    run_automatic_emittance,
+)
+from autonomous_control.facet.env_utils import validate_environment
+from autonomous_control.facet.optimization_utils import restore_on_error
 from lcls_tools.common.data.saver import H5Saver
 import time
 import pandas as pd
@@ -14,121 +14,103 @@ logger = logging.getLogger("auto_6d")
 
 
 @restore_on_error(context="auto_6d")
-def run_automatic_6d_measurement(env, save_filename):
+def run_automatic_6d_measurement(
+    env,
+    save_filename,
+    config_files,
+    tcav_modes=("STDBY", "ACCEL_STDBY"),
+    reset_tcav_mode="STDBY",
+    tcav_settle_time=2.0,
+    tcav_amplitude=0.4,
+    dump_location=None,
+):
     """Run a full 6D emittance measurement sequence.
 
-    Performs quad scans on PR10571 and PR10711 with the TCAV both off and
-    on, saving incremental results after each step.
-
-    Sequence
-    --------
-    1. Insert PR10571, TCAV off  — quad scan.
-    2. Insert PR10571, TCAV on   — quad scan.
-    3. Swap to PR10711, TCAV off — quad scan.
-    4. Swap to PR10711, TCAV on  — quad scan.
+    Performs a quad scan for each file in ``config_files``, with the TCAV
+    set to each mode in ``tcav_modes`` in turn, saving incremental results
+    after every step. Screen insertion/retraction targets for each scan are
+    read from the selected emittance YAML config.
 
     Parameters
     ----------
     env : Any
         Control environment providing TCAV control, screen insertion,
-        variable access, and emittance measurement interfaces.
+        variable access, and emittance measurement interfaces. See
+        ``EnvironmentInterface`` in ``env_utils.py``. Assumes ``env.screens``
+        is a dict mapping screen name (str) to a Screen object.
     save_filename : str or pathlib.Path
         Output path for the HDF5 results file.  Intermediate results are
         written after every measurement step.
+    config_files : tuple of str or pathlib.Path
+        Emittance YAML config files to run, in order.
+    tcav_modes : tuple of str, optional
+        ``env.tcav.mode_config`` values to scan through, in order; each value
+        is also used verbatim as the result-key suffix. Defaults to
+        ``("STDBY", "ACCEL_STDBY")``.
+    reset_tcav_mode : str, optional
+        ``mode_config`` value applied to the TCAV after all scans complete,
+        by default ``"STDBY"``.
+    tcav_settle_time : float, optional
+        Wait time in seconds after changing the TCAV mode, by default 2.0.
+    tcav_amplitude : float, optional
+        TCAV amplitude to set before each measurement, by default 0.4.
+    dump_location : str or pathlib.Path, optional
+        Forwarded to ``run_automatic_emittance`` as the measurement dump
+        directory.
 
     Returns
     -------
     data : dict
-        Dictionary with keys ``"PR10571_off"``, ``"PR10571_on"``,
-        ``"PR10711_off"``, ``"PR10711_on"``; each value is a dict
-        containing the serialized emittance result and captured environment
-        variables.
+        Keyed by ``f"{screen_name}_{mode}"`` for every ``config_files`` x
+        ``tcav_modes`` combination; each value is a dict containing the
+        serialized emittance result and captured environment variables.
     tracking_data : pandas.DataFrame
-        Concatenated Xopt data frames from all four quad scans.
+        Concatenated Xopt data frames from all quad scans.
     """
+    validate_environment(env)
+
     saver = H5Saver()
-
-    # turn off TCAV
-    env.tcav.mode_config = "STDBY"
-    time.sleep(2.0)
-
     data = {}
+    tracking_data = None
 
-    # run automatic emittance measurement with TCAV off
-    logger.info("running PR10571 quad scan tcav off")
-    emittance_result_PR10571_off, _, X = run_automatic_emittance(
-        env,
-        dump_location=env.save_directory,
-        screen_name="PR10571",
-    )
-    data["PR10571_off"] = emittance_result_PR10571_off.model_dump() | {
-        "environment_variables": env.get_variables(env.variables.keys())
-    }
-    # save the results
-    tracking_data = X.data
-    saver.dump(data, save_filename)
 
-    # turn on TCAV
-    env.tcav.mode_config = "ACCEL_STDBY"
-    time.sleep(2.0)
+    # get the old tcav amplitude and set the new amplitude
+    old_tcav_amplitude = env.tcav.amplitude
+    env.tcav.amplitude = tcav_amplitude
 
-    # run automatic emittance measurement with TCAV on
-    logger.info("running PR10571 quad scan tcav on")
-    emittance_result_PR10571_on, _, X = run_automatic_emittance(
-        env,
-        dump_location=env.save_directory,
-        screen_name="PR10571",
-    )
-    data["PR10571_on"] = emittance_result_PR10571_on.model_dump() | {
-        "environment_variables": env.get_variables(env.variables.keys())
-    }
-    # save the results
-    tracking_data = pd.concat([tracking_data, X.data], ignore_index=True)
-    saver.dump(data, save_filename)
+    for config_file in config_files:
+        _, screen_name, _ = resolve_emittance_config(config_file)
+        if screen_name not in env.screens:
+            raise ValueError(
+                f"Config file {config_file} references unknown screen {screen_name!r}"
+            )
 
-    # remove PR10571 and insert PR10711
-    env.screens["PR10571"].target = 0
-    env.screens["PR10711"].target = 1
+        for mode in tcav_modes:
+            env.tcav.mode_config = mode
+            time.sleep(tcav_settle_time)
 
-    # turn off TCAV
-    env.tcav.mode_config = "STDBY"
-    time.sleep(2.0)
+            logger.info(f"running {screen_name} quad scan tcav {mode}")
+            emittance_result, _, X = run_automatic_emittance(
+                env,
+                config_file,
+                dump_location=dump_location,
+            )
+            data[f"{screen_name}_{mode}"] = emittance_result.model_dump() | {
+                "environment_variables": env.get_variables(env.variables.keys())
+            }
+            tracking_data = (
+                X.data
+                if tracking_data is None
+                else pd.concat([tracking_data, X.data], ignore_index=True)
+            )
+            saver.dump(data, save_filename)
 
-    # run automatic emittance measurement with TCAV off
-    logger.info("running PR10711 quad scan tcav off")
-    emittance_result_PR10711_off, _, X = run_automatic_emittance(
-        env,
-        dump_location=env.save_directory,
-        screen_name="PR10711",
-    )
-    data["PR10711_off"] = emittance_result_PR10711_off.model_dump() | {
-        "environment_variables": env.get_variables(env.variables.keys())
-    }
-    # save the results
-    tracking_data = pd.concat([tracking_data, X.data], ignore_index=True)
-    saver.dump(data, save_filename)
+    # return the TCAV to a safe state after the sequence completes 
+    # and restore it to the old amplitude
+    env.tcav.mode_config = reset_tcav_mode
+    env.tcav.amplitude = old_tcav_amplitude
 
-    # turn on TCAV
-    env.tcav.mode_config = "ACCEL_STDBY"
-    time.sleep(2.0)
-
-    # run automatic emittance measurement with TCAV on
-    logger.info("running PR10711 quad scan tcav on")
-    emittance_result_PR10711_on, _, X = run_automatic_emittance(
-        env,
-        dump_location=env.save_directory,
-        screen_name="PR10711",
-    )
-    data["PR10711_on"] = emittance_result_PR10711_on.model_dump() | {
-        "environment_variables": env.get_variables(env.variables.keys())
-    }
-
-    # set the tcav amp back to 0.0
-    env.tcav.mode_config = "STDBY"
-    time.sleep(2.0)
-
-    # save the results
-    tracking_data = pd.concat([tracking_data, X.data], ignore_index=True)
-    saver.dump(data, save_filename)
+    time.sleep(tcav_settle_time)
 
     return data, tracking_data
+

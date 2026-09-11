@@ -57,16 +57,14 @@ Purpose:
 - Perform quadrupole-scan emittance measurement at a selected screen.
 
 Main parameters:
-- `screen_name` (required): typically `PR10571` or `PR10711`
-- `config_directory` (optional): override config file directory
+- `config_file` (required): path to the emittance YAML config; the file defines `screen.name` and `screen_targets`
 - `screen_settle_time` (optional): seconds to wait after screen target change
-- `screens` (optional): override per-screen target/config mapping
 
 YAML step example:
 
 ```yaml
 - type: measure_emittance
-  screen_name: PR10571
+  config_file: /path/to/emittance_measurement_configs/PR10571.yaml
   screen_settle_time: 2.0
 ```
 

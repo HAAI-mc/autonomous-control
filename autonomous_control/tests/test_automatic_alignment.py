@@ -2,7 +2,7 @@ import pytest
 
 import logging
 
-from autonomous_control.facet.env_utils import create_env
+from autonomous_control.facet.env_utils import create_facet_env
 from autonomous_control.facet.alignment_opt_es import optimize_alignment
 
 logging.basicConfig(level=logging.INFO)
@@ -11,7 +11,7 @@ logging.basicConfig(level=logging.INFO)
 class TestAutomaticAlignment:
     @pytest.fixture
     def env(self):
-        environment = create_env()
+        environment = create_facet_env()
 
         # remove PVs that are not supported by the VA
         for name in list(environment.variables.keys()):
