@@ -2,7 +2,7 @@ import pytest
 
 import logging
 
-from autonomous_control.facet.env_utils import create_facet_env
+from autonomous_control.env_utils import create_facet_env
 from autonomous_control.facet.alignment_opt_es import optimize_alignment
 
 logging.basicConfig(level=logging.INFO)

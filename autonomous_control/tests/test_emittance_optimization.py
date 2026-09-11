@@ -1,6 +1,6 @@
 import pytest
 
-from autonomous_control.facet.env_utils import create_facet_env
+from autonomous_control.env_utils import create_facet_env
 from autonomous_control.facet.emittance_opt import minimize_injector_emittance
 
 import logging

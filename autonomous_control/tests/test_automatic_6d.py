@@ -8,8 +8,8 @@ import pytest
 from lcls_tools.common.devices.screen import Screen
 from lcls_tools.common.devices.tcav import TCAV
 
-import autonomous_control.facet.auto_6d as auto_6d_module
-from autonomous_control.facet.auto_6d import run_automatic_6d_measurement
+import autonomous_control.auto_6d as auto_6d_module
+from autonomous_control.auto_6d import run_automatic_6d_measurement
 
 
 class _FakeResult:

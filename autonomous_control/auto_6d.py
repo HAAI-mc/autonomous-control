@@ -1,10 +1,10 @@
 import logging
 
-from autonomous_control.facet.auto_emittance import (
+from autonomous_control.auto_emittance import (
     resolve_emittance_config,
     run_automatic_emittance,
 )
-from autonomous_control.facet.env_utils import validate_environment
+from autonomous_control.env_utils import validate_environment
 from autonomous_control.facet.optimization_utils import restore_on_error
 from lcls_tools.common.data.saver import H5Saver
 import time
