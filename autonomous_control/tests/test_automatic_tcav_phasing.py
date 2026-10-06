@@ -15,6 +15,8 @@ import logging
 
 logging.basicConfig(level=logging.DEBUG)
 
+pytestmark = pytest.mark.facet_va
+
 
 def _get_tcav_or_fail(env):
     """Return a stable TCAV instance, failing hard when unavailable."""

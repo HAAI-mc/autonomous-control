@@ -9,6 +9,7 @@ logging.basicConfig(level=logging.DEBUG)
 
 
 class TestAutomaticAlignment:
+    @pytest.mark.facet_va
     def test_automatic_alignment_on_facet(self):
         environment = create_facet_env()
 
@@ -52,6 +53,7 @@ class TestAutomaticAlignment:
         bpm_readings = X.data.filter(like="BPMS:IN10", axis=1)
         assert bpm_readings.iloc[1:-1].nunique().sum() == bpm_readings.iloc[1:-1].size
 
+    @pytest.mark.lcls_va
     def test_automatic_alignment_on_cuhxr(self):
         environment = create_cuhxr_env()
 

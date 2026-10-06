@@ -7,6 +7,8 @@ import logging
 
 logging.basicConfig(level=logging.DEBUG)
 
+pytestmark = pytest.mark.facet_va
+
 
 class TestAutomaticEmittance:
     @pytest.fixture
