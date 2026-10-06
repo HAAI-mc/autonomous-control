@@ -20,6 +20,7 @@ jobs:
       lattice_repo: slaclab/lcls-lattice
       lattice_env_var: LCLS_LATTICE
       pythonpath_subdir: dev
+      start_element: CATHODE
       end_element: OTR4
       readiness_pv: QUAD:IN20:425:BCTRL
       pytest_marker: lcls_va

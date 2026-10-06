@@ -27,6 +27,11 @@ on:
         description: "--end-element value passed to the VA runner"
         required: true
         type: string
+      start_element:
+        description: "--start-element value passed to the VA runner"
+        required: false
+        type: string
+        default: "CATHODE"
       readiness_pv:
         description: "PV polled to confirm the VA is up before running tests"
         required: true
@@ -153,7 +158,7 @@ jobs:
       - name: Start virtual accelerator
         shell: bash
         run: |
-          conda run -n va-ci --no-capture-output python -m virtual_accelerator.models.runners ${{ inputs.va_model }} --end-element ${{ inputs.end_element }} --n-particles ${{ inputs.n_particles }} --log-level=DEBUG > "$RUNNER_TEMP/va.log" 2>&1 &
+          conda run -n va-ci --no-capture-output python -m virtual_accelerator.models.runners ${{ inputs.va_model }} --start-element ${{ inputs.start_element }} --end-element ${{ inputs.end_element }} --n-particles ${{ inputs.n_particles }} --log-level=DEBUG > "$RUNNER_TEMP/va.log" 2>&1 &
           echo $! > "$RUNNER_TEMP/va.pid"
 
       - name: Wait for EPICS readiness
