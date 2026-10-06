@@ -1,0 +1,27 @@
+name: LCLS CU-HXR VA Integration Tests
+
+on:
+  pull_request:
+  push:
+  workflow_dispatch:
+  schedule:
+    # Nightly run at 06:30 UTC, staggered from the FACET workflow.
+    - cron: "30 6 * * *"
+
+jobs:
+  va-tests:
+    name: Run VA-backed test suite
+    # Skip fork PRs because private repo secrets are unavailable.
+    if: ${{ github.event_name != 'pull_request' || !github.event.pull_request.head.repo.fork }}
+    uses: ./.github/workflows/_va-test-template.yml
+    with:
+      va_name: lcls
+      va_model: cu_hxr_staged
+      lattice_repo: slaclab/lcls-lattice
+      lattice_env_var: LCLS_LATTICE
+      pythonpath_subdir: dev
+      end_element: OTR4
+      readiness_pv: QUAD:IN20:425:BCTRL
+      pytest_marker: lcls_va
+      artifact_name_suffix: lcls
+    secrets: inherit

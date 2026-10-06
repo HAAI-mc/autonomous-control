@@ -213,3 +213,6 @@ __marimo__/
 dev/*
 *.yaml
 *.yml
+# CI workflow definitions must never be ignored by the blanket yaml/yml rules above.
+!.github/workflows/*.yml
+!.github/workflows/*.yaml
