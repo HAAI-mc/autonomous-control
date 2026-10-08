@@ -158,7 +158,7 @@ jobs:
       - name: Start virtual accelerator
         shell: bash
         run: |
-          conda run -n va-ci --no-capture-output python -m virtual_accelerator.models.runners ${{ inputs.va_model }} --start-element ${{ inputs.start_element }} --end-element ${{ inputs.end_element }} --n-particles ${{ inputs.n_particles }} --log-level=DEBUG > "$RUNNER_TEMP/va.log" 2>&1 &
+          conda run -n va-ci --no-capture-output python -m virtual_accelerator.models.runners ${{ inputs.va_model }} --start-ele ${{ inputs.start_element }} --end-ele ${{ inputs.end_element }} --n-particles ${{ inputs.n_particles }} --log-level=DEBUG > "$RUNNER_TEMP/va.log" 2>&1 &
           echo $! > "$RUNNER_TEMP/va.pid"
 
       - name: Wait for EPICS readiness

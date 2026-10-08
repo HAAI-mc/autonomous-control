@@ -16,7 +16,7 @@ jobs:
     uses: ./.github/workflows/_va-test-template.yml
     with:
       va_name: lcls
-      va_model: cu_hxr_bmad
+      va_model: bmad_cu_hxr
       lattice_repo: slaclab/lcls-lattice
       lattice_env_var: LCLS_LATTICE
       pythonpath_subdir: dev

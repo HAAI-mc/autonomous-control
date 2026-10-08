@@ -16,7 +16,7 @@ jobs:
     uses: ./.github/workflows/_va-test-template.yml
     with:
       va_name: facet
-      va_model: facet_staged
+      va_model: fast_facet2_s2e
       lattice_repo: slaclab/facet2-lattice
       lattice_env_var: FACET2_LATTICE
       pythonpath_subdir: facet
