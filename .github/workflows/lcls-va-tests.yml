@@ -16,7 +16,7 @@ jobs:
     uses: ./.github/workflows/_va-test-template.yml
     with:
       va_name: lcls
-      runner_command: "bmad_cu_hxr --end-ele OTR4"
+      runner_command: "bmad_cu_hxr --start-ele CATHODE --end-ele OTR4"
       lattice_repo: slaclab/lcls-lattice
       lattice_env_var: LCLS_LATTICE
       pythonpath_subdir: dev
