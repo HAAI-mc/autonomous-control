@@ -7,8 +7,8 @@ on:
         description: "Short display name for the VA (e.g. facet, lcls)"
         required: true
         type: string
-      va_model:
-        description: "virtual_accelerator.models.runners model choice (e.g. facet_staged, cu_hxr_staged)"
+      runner_command:
+        description: "Full argument string passed to `python -m virtual_accelerator.models.runners` (e.g. 'facet_staged --start-ele CATHODE --end-ele PR10711 --n-particles 1000')"
         required: true
         type: string
       lattice_repo:
@@ -23,15 +23,6 @@ on:
         description: "Subdirectory of Badger-Resources to add to PYTHONPATH (e.g. facet, dev)"
         required: true
         type: string
-      end_element:
-        description: "--end-element value passed to the VA runner"
-        required: true
-        type: string
-      start_element:
-        description: "--start-element value passed to the VA runner"
-        required: false
-        type: string
-        default: "CATHODE"
       readiness_pv:
         description: "PV polled to confirm the VA is up before running tests"
         required: true
@@ -44,11 +35,6 @@ on:
         description: "Suffix for the uploaded debug-artifact name, to keep per-VA artifacts distinct"
         required: true
         type: string
-      n_particles:
-        description: "--n-particles value passed to the VA runner"
-        required: false
-        type: string
-        default: "1000"
       extra_conda_packages:
         description: "conda-forge packages required by the model backend"
         required: false
@@ -158,7 +144,7 @@ jobs:
       - name: Start virtual accelerator
         shell: bash
         run: |
-          conda run -n va-ci --no-capture-output python -m virtual_accelerator.models.runners ${{ inputs.va_model }} --start-ele ${{ inputs.start_element }} --end-ele ${{ inputs.end_element }} --n-particles ${{ inputs.n_particles }} --log-level=DEBUG > "$RUNNER_TEMP/va.log" 2>&1 &
+          conda run -n va-ci --no-capture-output python -m virtual_accelerator.models.runners ${{ inputs.runner_command }} --log-level=DEBUG > "$RUNNER_TEMP/va.log" 2>&1 &
           echo $! > "$RUNNER_TEMP/va.pid"
 
       - name: Wait for EPICS readiness

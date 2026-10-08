@@ -16,11 +16,10 @@ jobs:
     uses: ./.github/workflows/_va-test-template.yml
     with:
       va_name: facet
-      va_model: fast_facet2_s2e
+      runner_command: "fast_facet2_s2e --end-ele PR10711 --n-particles 1000"
       lattice_repo: slaclab/facet2-lattice
       lattice_env_var: FACET2_LATTICE
       pythonpath_subdir: facet
-      end_element: PR10711
       readiness_pv: QUAD:IN10:121:BCTRL
       pytest_marker: facet_va
       artifact_name_suffix: facet
