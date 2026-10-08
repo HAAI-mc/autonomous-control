@@ -6,4 +6,4 @@ import pytest
 def _reset_va_after_test():
     """Reset the virtual accelerator after every test so state doesn't leak between tests."""
     yield
-    epics.caput("RESET", 1)
+    epics.caput("RESET", 1, wait=True)
