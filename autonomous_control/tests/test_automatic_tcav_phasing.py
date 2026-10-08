@@ -3,7 +3,7 @@ import pytest
 import numpy as np
 
 from autonomous_control.env_utils import create_facet_env
-from autonomous_control.facet.tcav_phasing import (
+from autonomous_control.auto_tcav_phasing import (
     MLTCAVPhasing,
     tcav_phasing,
     set_tcav_amplitude_and_wait,
