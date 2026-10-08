@@ -1,4 +1,5 @@
 import logging
+import pathlib
 from xopt import Xopt, Evaluator, VOCS
 from xopt.generators.sequential import ExtremumSeekingGenerator
 import numpy as np
@@ -69,24 +70,23 @@ DEFAULT_ALIGNMENT_PVS = {
 @restore_on_error(context="alignment_opt_es")
 def optimize_alignment(
     env,
-    dump_location=None,
-    to_screen_name="PR10571",
-    custom_corrector_pvs=None,
-    custom_bpm_observable_pvs=None,
-    custom_upstream_bpm_name=None,
-    custom_downstream_bpm_name=None,
-    n_steps=100,
-    target_value=1.0,
-    region_fraction=0.15,
-    oscillation_size=0.01,
-    steering_settle_time=0.2,
+    corrector_pvs: list[str],
+    bpm_observable_pvs: list[str],
+    upstream_charge_pv: str,
+    downstream_charge_pv: str,
+    dump_location: str | pathlib.Path | None = None,
+    n_steps: int = 100,
+    target_value: float = 1.0,
+    region_fraction: float = 0.15,
+    oscillation_size: float = 0.01,
+    steering_settle_time: float = 0.2,
 ):
     """Run the extremum-seeking alignment optimization process.
 
     Users specify a default set of corrector PVs and BPM observable PVs for alignment by setting the
-    ``to_screen_name`` argument. If custom corrector PVs or BPM observable PVs are desired,
-    they can be specified with the ``custom_corrector_pvs``, ``custom_bpm_observable_pvs``,
-    ``custom_upstream_bpm``, and ``custom_downstream_bpm`` arguments and will override the default
+    ``corrector_pvs`` and ``bpm_observable_pvs`` arguments. If custom corrector PVs or BPM observable PVs are desired,
+    they can be specified with the ``corrector_pvs``, ``bpm_observable_pvs``,
+    ``upstream_charge_pv``, and ``downstream_charge_pv`` arguments and will override the default
     PVs for the specified screen.
 
     Parameters
@@ -94,18 +94,16 @@ def optimize_alignment(
     env : Any
         Control environment providing ``get_bounds``, ``get_variables``,
         and ``get_observables``.
+    corrector_pvs : list of str
+        Corrector PVs to use for alignment.
+    bpm_observable_pvs : list of str
+        BPM observable PVs to use for alignment.
+    upstream_charge_pv : str
+        Upstream charge pv for transmission measurements.
+    downstream_charge_pv : str
+        Downstream charge pv for transmission measurements.
     dump_location : str or pathlib.Path, optional
         Xopt dump file path, by default None.
-    to_screen_name : str, optional
-        Screen name to align to, by default ``"PR10571"``.
-    custom_corrector_pvs : list of str, optional
-        Custom corrector PVs to use for alignment, by default None.
-    custom_bpm_observable_pvs : list of str, optional
-        Custom BPM observable PVs to use for alignment, by default None.
-    custom_upstream_bpm_name : str, optional
-        Custom upstream BPM PV to use for alignment, by default None.
-    custom_downstream_bpm_name : str, optional
-        Custom downstream BPM PV to use for alignment, by default None.
     n_steps : int, optional
         Maximum number of extremum-seeking steps, by default 100.
     target_value : float, optional
@@ -125,31 +123,16 @@ def optimize_alignment(
     """
     # env.set_screen(to_screen_name)
 
-    logger.info(f"Starting automatic alignment for screen: {to_screen_name}")
+    logger.info(f"Starting automatic alignment")
 
     # load in default corrector and BPM PVs for the specified screen
-    # override with custom PVs if provided
-    pvs = custom_corrector_pvs or DEFAULT_ALIGNMENT_PVS[to_screen_name]["corrector_pvs"]
-    bpm_observables = (
-        custom_bpm_observable_pvs or DEFAULT_ALIGNMENT_PVS[to_screen_name]["bpms"]
-    )
-    upstream_bpm_name = (
-        custom_upstream_bpm_name
-        or DEFAULT_ALIGNMENT_PVS[to_screen_name]["upstream_bpm"]
-    )
-    downstream_bpm_name = (
-        custom_downstream_bpm_name
-        or DEFAULT_ALIGNMENT_PVS[to_screen_name]["downstream_bpm"]
-    )
 
-    temp_vocs = VOCS(variables=env.get_bounds(pvs), observables=[])
+
+    temp_vocs = VOCS(variables=env.get_bounds(corrector_pvs), observables=[])
     local_region = get_local_region(
         temp_vocs, env.get_variables(temp_vocs.variables.keys()), region_fraction
     )
 
-    # set environment BPMs for transmission measurement
-    env.upstream_bpm_name = upstream_bpm_name
-    env.downstream_bpm_name = downstream_bpm_name
 
     def eval(inputs):
         logger.info(f"evaluating point: {inputs}")
@@ -164,24 +147,27 @@ def optimize_alignment(
             logger.warning("Transmission error while setting variables.")
             # transmission below 0.8
             norm = np.nan
-            bpm_signals = {name: np.nan for name in bpm_observables}
+            bpm_signals = {name: np.nan for name in bpm_observable_pvs}
             transmission = 0.5
             return {"norm": norm, "transmission": transmission} | bpm_signals
 
-        transmission = env.get_observables(["transmission"])["transmission"]
+        charge_readings = env.get_observables([upstream_charge_pv, downstream_charge_pv])
+        transmission = charge_readings.get(downstream_charge_pv, 0.0) / charge_readings.get(upstream_charge_pv, 1.0)
         try:
-            bpm_signals = env.get_observables(bpm_observables)
-            norm = np.linalg.norm([bpm_signals[name] for name in bpm_observables])
+            bpm_signals = env.get_observables(bpm_observable_pvs)
+            norm = np.linalg.norm([bpm_signals[name] for name in bpm_observable_pvs])
         except KeyError:
             logger.warning("Error while getting observables")
             norm = np.nan
-            bpm_signals = {name: np.nan for name in bpm_observables}
+            bpm_signals = {name: np.nan for name in bpm_observable_pvs}
 
         # pop input keys from bpm_signals
         for name in inputs.keys():
             if name in bpm_signals:
                 bpm_signals.pop(name)
 
+        logging.info(f"bpm_signals after popping inputs: {bpm_signals}")
+        logging.info(f"returning from eval with norm: {norm}, transmission: {transmission}")
         return {"norm": norm, "transmission": transmission} | bpm_signals
 
     vocs = VOCS(

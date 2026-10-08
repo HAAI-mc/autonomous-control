@@ -45,3 +45,9 @@ include = ["autonomous_control*"]
 [tool.pytest.ini_options]
 log_cli = true
 log_cli_level = "INFO"
+addopts = "--strict-markers"
+# marker convention: "<facility>_va" ties a test to the VA-backed CI workflow that runs it
+markers = [
+	"facet_va: runs against the FACET-II (facet_staged) virtual accelerator",
+	"lcls_va: runs against the LCLS CU-HXR (cu_hxr_staged) virtual accelerator",
+]

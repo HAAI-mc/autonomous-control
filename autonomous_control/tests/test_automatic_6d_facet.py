@@ -8,6 +8,8 @@ from autonomous_control.env_utils import create_facet_env
 
 logging.basicConfig(level=logging.DEBUG)
 
+pytestmark = pytest.mark.facet_va
+
 
 class TestAutomaticSixDFacet:
     @pytest.fixture

@@ -7,6 +7,8 @@ from autonomous_control.env_utils import create_cuhxr_env
 
 logging.basicConfig(level=logging.DEBUG)
 
+pytestmark = pytest.mark.lcls_va
+
 
 class TestAutomaticSixDCUHXR:
     @pytest.fixture
@@ -34,7 +36,15 @@ class TestAutomaticSixDCUHXR:
 
         return environment
 
-    @pytest.mark.skip(reason="Expected to fail due to incomplete VA for lcls inj")
+    @pytest.mark.skip(
+        reason=(
+            "cu_hxr_staged does not expose TCAV0 under real LCLS PV names: "
+            "virtual-accelerator's get_cu_hxr_bmad_model() passes no custom_aliases "
+            "(unlike FACET_PV_OVERRIDES for facet_staged), so it doesn't match the "
+            "PVs hardcoded in Badger-Resources/dev's create_tcav_device. Needs an "
+            "upstream fix in slaclab/virtual-accelerator; tracked separately."
+        )
+    )
     def test_run_automatic_6d_measurement_on_va(self, env):
         config_dir = Path(env.emittance_config_fname).parent
 

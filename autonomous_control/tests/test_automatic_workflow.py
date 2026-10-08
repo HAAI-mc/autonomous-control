@@ -4,6 +4,8 @@ from pathlib import Path
 from autonomous_control.env_utils import create_facet_env
 from autonomous_control.facet.runner import run_automatic_workflow
 
+pytestmark = pytest.mark.facet_va
+
 
 class TestAutomaticWorkflow:
     @pytest.fixture
