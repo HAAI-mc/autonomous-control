@@ -7,40 +7,29 @@ import yaml
 import argparse
 
 
-from autonomous_control.facet.laser_steering import optimize_laser_steering
 from autonomous_control.auto_emittance import measure_emittance
-from autonomous_control.facet.auto_schottky import optimize_schottky
 from autonomous_control.alignment_opt_es import optimize_alignment
-from autonomous_control.facet.e_spread_opt import minimize_energy_spread
-from autonomous_control.facet.emittance_opt import minimize_injector_emittance
-from autonomous_control.facet.tcav_phasing import tcav_phasing
-# from autonomous_control.facet.l0_phasing import l0_phasing
-from autonomous_control.env_utils import create_facet_env, reset_env
+from autonomous_control.auto_tcav_phasing import tcav_phasing
 
 
 STEP_HANDLERS = {
     "measure_emittance": measure_emittance,
-    "optimize_schottky": optimize_schottky,
     "optimize_alignment": optimize_alignment,
-    "minimize_energy_spread": minimize_energy_spread,
-    "minimize_injector_emittance": minimize_injector_emittance,
     "tcav_phasing": tcav_phasing,
-    # "l0_phasing": l0_phasing,
-    "optimize_laser_steering": optimize_laser_steering,
 }
 
 
 def run_automatic_workflow(
     workflow: list[dict],
-    env: Any = None,
+    env: Any,
     dump_location: str = ".",
     reset_env_after: bool = True,
     logging_level: int = logging.INFO,
 ):
     """
-    Run a sequence of automatic workflows in the FACET-II badger environment.
+    Run a sequence of automatic workflows in the autonomous injector badger environment.
 
-    If no environment is provided, a new FACET-II badger environment will be created.
+    If no environment is provided, a new autonomous injector badger environment will be created.
     The workflow is defined as a list of dictionaries, where each dictionary specifies
     the type of workflow to run and any necessary parameters. We iterate through the workflow steps,
     executing each one in order. After all steps are completed, the
@@ -64,13 +53,13 @@ def run_automatic_workflow(
         Each dictionary must contain a 'type' key that specifies the type of workflow to run,
         and may contain additional keys for parameters required by that workflow.
     env : Any, optional
-        An existing FACET-II badger environment. If not provided, a new environment will be created.
+        An existing autonomous injector badger environment. If not provided, a new environment will be created.
     dump_location : str, optional
         If provided, the path to an output directory where the runner will write its own result artifacts
         including a log file and a Xopt dump file that contains serialized Xopt objects from each workflow
         step. If not provided files will be written to the current working directory.
     reset_env_after : bool, optional
-        If True, the FACET-II badger environment will be reset to a safe state after all workflow steps have been executed. Default is True.
+        If True, the autonomous injector badger environment will be reset to a safe state after all workflow steps have been executed. Default is True.
     logging_level : int, optional
         The logging level to use for the workflow execution. Default is logging.INFO.
 
@@ -112,13 +101,6 @@ def run_automatic_workflow(
         "workflow_timestamp": ts,
         "task_handlers": {},
     }
-
-    # create and configure the FACET-II badger environment
-    if env is None:
-        logging.info("Creating new FACET-II badger environment.")
-        env = create_facet_env()
-    else:
-        logging.info("Using provided FACET-II badger environment.")
 
     completed_steps = 0
     total_steps = len(workflow)
@@ -188,7 +170,7 @@ def run_automatic_workflow(
         logging.info("Resetting environment to safe state.")
         post_reset_start = time.time()
         try:
-            reset_env(env)
+            env.reset()
         except Exception:
             logging.exception("Post-workflow environment reset failed.")
             raise
@@ -216,13 +198,13 @@ def run_automatic_workflow(
 
 def run_automatic_workflow_from_file(
     workflow_file: str,
-    env: Any = None,
+    env: Any,
     dump_location: str = ".",
     reset_env_after: bool = True,
     logging_level: int = logging.INFO,
 ):
     """
-    Run a sequence of automatic workflows in the FACET-II badger environment from a YAML file.
+    Run a sequence of automatic workflows in the autonomous injector badger environment from a YAML file.
 
     Parameters
     ----------
@@ -230,14 +212,14 @@ def run_automatic_workflow_from_file(
         Path to a YAML file that defines the workflow steps. The file should contain a list of dictionaries,
         where each dictionary represents a workflow step with a 'type' key and any necessary parameters.
     env : Any, optional
-        An existing FACET-II badger environment. If not provided, a new environment will be created.
+        An existing autonomous injector badger environment. If not provided, a new autonomous injector badger environment will be created.
     dump_location : str, optional
         If provided, the path to an output directory where workflow steps may write
         their own result artifacts. The directory will be created automatically if
         needed. If not provided, step handlers will manage their own default output
         locations.
     reset_env_after : bool, optional
-        If True, the FACET-II badger environment will be reset to a safe state after all workflow steps have been executed. Default is True.
+        If True, the autonomous injector badger environment will be reset to a safe state after all workflow steps have been executed. Default is True.
     logging_level : int, optional
         The logging level to use for the workflow execution. Default is logging.INFO.
     """
@@ -258,7 +240,7 @@ if __name__ == "__main__":
     # CLI interface for running automatic workflows from a YAML file
 
     parser = argparse.ArgumentParser(
-        description="Run an automatic workflow in the FACET-II badger environment from a YAML file."
+        description="Run an automatic workflow in the autonomous injector badger environment from a YAML file."
     )
     parser.add_argument(
         "workflow_file",
@@ -274,7 +256,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--reset_env_after",
         action="store_true",
-        help="Reset the environment to a safe state after workflow completion.",
+        help="Reset the autonomous injector badger environment to a safe state after workflow completion.",
     )
     parser.add_argument(
         "--logging_level",

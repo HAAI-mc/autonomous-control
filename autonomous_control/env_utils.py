@@ -34,6 +34,8 @@ class EnvironmentInterface(Protocol):
 
     def run_emittance_measurement(self) -> tuple[Any, str]: ...
 
+    def reset(self) -> None: ...
+
 
 def validate_environment(env) -> None:
     """Validate that ``env`` satisfies the ``EnvironmentInterface`` contract.
@@ -78,6 +80,7 @@ def validate_environment(env) -> None:
         "set_variables",
         "_create_emittance_object",
         "run_emittance_measurement",
+        "reset",
     ):
         if not callable(getattr(env, method, None)):
             errors.append(f"env.{method}() is required but missing or not callable")
@@ -145,15 +148,3 @@ def restore_env_state(env, state: dict):
     Restore the FACET-II badger environment to a previously captured state.
     """
     env.set_variables(state)
-
-
-def reset_env(env):
-    """
-    Reset the FACET-II badger environment to a safe state for autonomous workflows.
-    This includes setting the TCAV to standby mode,
-    retracting screens, and removing the Faraday cup from the beam path.
-    """
-    env.tcav.mode_config = "STDBY"
-    env.screens["PR10571"].target = 0
-    env.screens["PR10711"].target = 0
-    epics.caput("FARC:IN10:241:PNEUMATIC", 0)

@@ -2,7 +2,7 @@ import pytest
 from pathlib import Path
 
 from autonomous_control.env_utils import create_facet_env
-from autonomous_control.facet.runner import run_automatic_workflow
+from autonomous_control.runner import run_automatic_workflow
 
 pytestmark = pytest.mark.facet_va
 
@@ -37,18 +37,18 @@ class TestAutomaticWorkflow:
         # define a simple workflow with two steps
         workflow = [
             {
-                "type": "measure_emittance",
-                "config_file": config_dir / "PR10571.yaml",
-            },
-            {
                 "type": "tcav_phasing",
                 "max_scan_range": [-10, 10],
                 "n_iterations": 3,
                 "n_initial_points": 3,
                 "tcav_on_amplitude": 0.3,
             },
+            {
+                "type": "measure_emittance",
+                "config_file": config_dir / "PR10571.yaml",
+            },
         ]
-        log_file = run_automatic_workflow(workflow, env)
+        log_file = run_automatic_workflow(workflow, env, reset_env_after=False)
 
         # check to make sure that info has been logged for each step
         with open(log_file, "r") as f:
