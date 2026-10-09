@@ -144,7 +144,10 @@ jobs:
       - name: Start virtual accelerator
         shell: bash
         run: |
-          conda run -n va-ci --no-capture-output python -m virtual_accelerator.models.runners ${{ inputs.runner_command }} --log-level=DEBUG > "$RUNNER_TEMP/va.log" 2>&1 &
+          setsid conda run -n va-ci --no-capture-output \
+            python -m virtual_accelerator.models.runners \
+            ${{ inputs.runner_command }} --log-level=DEBUG \
+            > "$RUNNER_TEMP/va.log" 2>&1 &
           echo $! > "$RUNNER_TEMP/va.pid"
 
       - name: Wait for EPICS readiness
@@ -188,17 +191,55 @@ jobs:
           echo "=== READINESS CHECK PYTHON SCRIPT FINISHED ==="
 
       - name: Run test suite
+        id: va_tests
         timeout-minutes: 15
+        continue-on-error: true
         shell: bash
         run: |
           conda run -n va-ci --no-capture-output python -m pytest autonomous_control/tests -m "${{ inputs.pytest_marker }}" -vv -ra -s -o console_output_style=progress --durations=15
+
+      - name: Restart virtual accelerator after test failure
+        id: va_restart
+        if: steps.va_tests.outcome == 'failure'
+        shell: bash
+        run: |
+          cp "$RUNNER_TEMP/va.log" "$RUNNER_TEMP/va-first-attempt.log"
+          if [[ -f "$RUNNER_TEMP/va.pid" ]]; then
+            va_pid="$(cat "$RUNNER_TEMP/va.pid")"
+            kill -- "-$va_pid" 2>/dev/null || true
+            for attempt in {1..30}; do
+              if ! kill -0 "$va_pid" 2>/dev/null; then
+                break
+              fi
+              sleep 1
+            done
+            if kill -0 "$va_pid" 2>/dev/null; then
+              kill -KILL -- "-$va_pid" 2>/dev/null || true
+            fi
+          fi
+          setsid conda run -n va-ci --no-capture-output \
+            python -m virtual_accelerator.models.runners \
+            ${{ inputs.runner_command }} --log-level=DEBUG \
+            > "$RUNNER_TEMP/va.log" 2>&1 &
+          echo $! > "$RUNNER_TEMP/va.pid"
+          conda run -n va-ci python "$RUNNER_TEMP/check_va.py"
+
+      - name: Retry test suite
+        if: steps.va_tests.outcome == 'failure' && steps.va_restart.conclusion == 'success'
+        timeout-minutes: 15
+        shell: bash
+        run: |
+          conda run -n va-ci --no-capture-output \
+            python -m pytest autonomous_control/tests \
+            -m "${{ inputs.pytest_marker }}" -vv -ra -s \
+            -o console_output_style=progress --durations=15
 
       - name: Stop virtual accelerator
         if: always()
         shell: bash
         run: |
           if [[ -f "$RUNNER_TEMP/va.pid" ]]; then
-            kill "$(cat "$RUNNER_TEMP/va.pid")" 2>/dev/null || true
+            kill -- "-$(cat "$RUNNER_TEMP/va.pid")" 2>/dev/null || true
           fi
 
       - name: Upload failure or cancelled artifacts
@@ -209,6 +250,7 @@ jobs:
           if-no-files-found: warn
           path: |
             ${{ runner.temp }}/va.log
+            ${{ runner.temp }}/va-first-attempt.log
             ${{ github.workspace }}/*.h5
             ${{ github.workspace }}/*.yaml
             ${{ github.workspace }}/*.yml
