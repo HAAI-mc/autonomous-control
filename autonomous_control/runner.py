@@ -10,12 +10,13 @@ import argparse
 from autonomous_control.auto_emittance import measure_emittance
 from autonomous_control.alignment_opt_es import optimize_alignment
 from autonomous_control.auto_tcav_phasing import tcav_phasing
-
+from autonomous_control.auto_laser_steering import optimize_laser_steering
 
 STEP_HANDLERS = {
     "measure_emittance": measure_emittance,
     "optimize_alignment": optimize_alignment,
     "tcav_phasing": tcav_phasing,
+    "optimize_laser_steering": optimize_laser_steering,
 }
 
 
