@@ -9,30 +9,6 @@ import time
 import logging
 from xopt import Xopt, Evaluator, VOCS
 
-import torch
-from botorch.acquisition.multi_objective.analytic import (
-    MultiObjectiveAnalyticAcquisitionFunction,
-)
-from botorch.models.model import Model, ModelList
-from botorch.utils.transforms import t_batch_mode_transform
-from torch import Tensor
-
-import pickle
-from copy import deepcopy
-from typing import Dict, List
-
-from botorch.models import ModelListGP, SingleTaskGP
-from pydantic import (
-    Field,
-    ValidationInfo,
-    field_validator,
-    model_validator,
-)
-
-from xopt.errors import VOCSError
-from xopt.generators.bayesian.bax.algorithms import Algorithm
-from xopt.generators.bayesian.bayesian_generator import BayesianGenerator
-from xopt.generators.bayesian.turbo import EntropyTurboController, SafetyTurboController
 
 from bax_algorithms.solenoid_alignment import PathwiseSolenoidAlignment
 from bax_algorithms.pathwise.optimize import DifferentialEvolution
@@ -47,12 +23,17 @@ from xopt.numerical_optimizer import LBFGSOptimizer
 
 import epics
 
-logger = logging.getLogger("solenoid_alignment_opt")
+logger = logging.getLogger("optimize_laser_steering")
 
 
 
 def optimize_laser_steering(
     env,
+    bpm_x_pv: str,
+    bpm_y_pv: str,
+    bpm_tmit_pv: str,
+    solenoid_pv: str,
+    mirror_pvs: list[str],
     dump_location=None,
     initial_random_evaluations=2,
     n_steps=30,
@@ -66,6 +47,16 @@ def optimize_laser_steering(
     env : Any
         Injector control environment that provides variable and observable
         interfaces used by this routine.
+    bpm_x_pv : str
+        PV for the BPM X position.
+    bpm_y_pv : str
+        PV for the BPM Y position.
+    bpm_tmit_pv : str
+        PV for the BPM transmitted intensity.
+    solenoid_pv : str
+        PV for the solenoid control.
+    mirror_pvs : list[str]
+        List of PVs for the mirror controls.
     dump_location : str or pathlib.Path, optional
         Xopt dump file path.
     initial_random_evaluations : int, optional
@@ -128,20 +119,16 @@ def optimize_laser_steering(
         # note that output will contain many results, not just emittance_x
         # see FACET-II injector badger environment for details
         output = env.get_observables(
-            ["BPMS:IN10:221:X", "BPMS:IN10:221:Y", "BPMS:IN10:221:TMIT"]
+            [bpm_x_pv, bpm_y_pv, bpm_tmit_pv]
         )
-        output["BPMS:IN10:221:TMIT"] *= 1e-10
+        output[bpm_tmit_pv] *= 1e-10
         logger.debug("Evaluation output keys: %s", list(output.keys()))
 
         return output
 
     # set up VOCS
-    meas_param = "SOLN:IN10:121:BCTRL"
-    variable_names = [
-        "MIRR:LT10:770:M2_MOTR_H",
-        "MIRR:LT10:770:M2_MOTR_V",
-        "SOLN:IN10:121:BCTRL",
-    ]
+    meas_param = solenoid_pv
+    variable_names = mirror_pvs + [solenoid_pv]
     init_settings = {var_name: epics.caget(var_name) for var_name in variable_names}
     variables = {
         var_name: sorted(
@@ -150,28 +137,28 @@ def optimize_laser_steering(
                 init_settings[var_name] * (1 + mirror_range_fraction),
             ]
         )
-        for var_name in variable_names[:2]
+        for var_name in mirror_pvs
     }
-    variables["SOLN:IN10:121:BCTRL"] = [
-        init_settings["SOLN:IN10:121:BCTRL"] * (1 - solenoid_range_fraction),
-        init_settings["SOLN:IN10:121:BCTRL"] * (1 + solenoid_range_fraction),
+    variables[solenoid_pv] = [
+        init_settings[solenoid_pv] * (1 - solenoid_range_fraction),
+        init_settings[solenoid_pv] * (1 + solenoid_range_fraction),
     ]
     # construct vocs
     vocs = VOCS(
         variables=variables,
-        observables=["BPMS:IN10:221:X", "BPMS:IN10:221:Y", "BPMS:IN10:221:TMIT"],
+        observables=[bpm_x_pv, bpm_y_pv, bpm_tmit_pv],
     )
 
     meas_dim = sorted(vocs.variable_names).index(meas_param)
 
     # Prepare Algorithm
     algo_kwargs = {
-        "x_key": "BPMS:IN10:221:X",
-        "y_key": "BPMS:IN10:221:Y",
+        "x_key": bpm_x_pv,
+        "y_key": bpm_y_pv,
         "n_samples": 2,
         "meas_dim": meas_dim,
         "n_steps_measurement_param": 5,
-        "observable_names_ordered": ["BPMS:IN10:221:X", "BPMS:IN10:221:Y"],
+        "observable_names_ordered": [bpm_x_pv, bpm_y_pv],
         "optimizer": DifferentialEvolution(minimize=True, maxiter=10, verbose=False),
         "n_batch": 5,
     }
@@ -218,7 +205,7 @@ def optimize_laser_steering(
     )
     x_tuning = get_bax_mean_prediction(X.generator, mean_optimizer)
     x_tuning_dict = tuning_input_tensor_to_dict(X.generator, x_tuning)
-    best = x_tuning_dict | {"SOLN:IN10:121:BCTRL": init_settings["SOLN:IN10:121:BCTRL"]}
+    best = x_tuning_dict | {solenoid_pv: init_settings[solenoid_pv]}
 
     safe_evaluate_best_point(
         X,
@@ -230,7 +217,7 @@ def optimize_laser_steering(
 
     fig, ax = visualize_virtual_measurement_result(
         X.generator,
-        variable_names=["MIRR:LT10:770:M2_MOTR_H", "MIRR:LT10:770:M2_MOTR_V"],
+        variable_names=mirror_pvs,
         reference_point=best,
         n_grid=10,
         n_samples=1000,
